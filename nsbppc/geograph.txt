@@ -1,0 +1,178 @@
+'  Geograph plots a graph of data retrieved
+'  from a PHP script on a website.
+'
+'  Copyright (C) 2010  Andrew Thomas
+'
+'  This program is free software: you can
+'  redistribute it and/or modify it under the
+'  terms of the GNU General Public License
+'  as published by the Free Software Foundation,
+'  either version 3 of the License, or (at your
+'  option) any later version.
+'
+'  This program is distributed in the hope that
+'  it will be useful, but WITHOUT ANY
+'  WARRANTY; without even the implied
+'  warranty of MERCHANTABILITY or FITNESS
+'  FOR A PARTICULAR PURPOSE.  See the
+'  GNU General Public License for more details.
+'
+'  See http://www.gnu.org/licenses/ for full
+'  details of licenses.
+
+Option Explicit
+
+ShowOKButton True
+
+AddObject "newObjects.net.NSMain","NSMain"
+AddObject "newObjects.utilctls.SFStream","conn"
+
+Dim addr,socket,gotdata,samples(1000)
+Dim aboutTxt,licenseTxt1,licenseTxt2
+Dim numsamples,host,page
+Dim ymax,ymin,range
+host="www.geocomputing.co.uk"
+page="/php/geograph.php"
+numsamples=0
+gotdata=0
+
+aboutTxt="Programmed by: Andrew Thomas" & vbcrlf
+aboutTxt=aboutTxt & "Year(s): February 2010" & vbcrlf
+aboutTxt=aboutTxt & "For more details see www.geocomputing.co.uk"
+
+licenseTxt1="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+licenseTxt2="This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details." & vbcrlf & vbcrlf
+licenseTxt2=licenseTxt2 & "See http://www.gnu.org/licenses/ for full details of licenses." 
+
+
+Sub getranges
+  Dim cnt
+  ymin=99999999
+  ymax=-99999999
+  for cnt=1 to numsamples
+    if cdbl(samples(cnt))>ymax then
+      ymax=cdbl(samples(cnt))
+    end if
+    if cdbl(samples(cnt))<ymin then
+      ymin=cdbl(samples(cnt))
+    end if
+  next
+  range=ymax-ymin
+End Sub
+
+Sub draw_graph
+  Dim x1, x2, y1, y2, cc
+  if gotdata=0 then
+    exit sub
+  end if
+  waitcursor true
+  graph.cls
+  graph.backcolor=rgb(70,70,255)
+  graph.drawline 0,graph.height-1,graph.width,graph.height-1,vbwhite
+  graph.drawline 0,0,0,graph.height,vbwhite
+  getranges
+  x1=(0/numsamples)*graph.Width
+  y1=graph.Height-(((samples(1)-ymin) /range)*graph.Height)
+  for cc=2 to numsamples
+     x2=(cc/numsamples)*graph.Width
+     y2=graph.Height-(((samples(cc)-ymin) /range) * graph.Height)
+      graph.drawline x1,y1,x2,y2,vbyellow
+      x1=x2
+      y1=y2
+  next
+  graph.penstyle=1
+  graph.drawtext ymax,3,1,vbyellow
+  graph.drawtext ymin,3,graph.Height - 17,vbyellow
+  waitcursor false
+End Sub
+
+Sub goget_Click
+  Dim s,pos1,pos2,istr,a,cnt
+  goget.enabled=false
+  goget.backcolor=rgb(255,100,100)
+  istr=""
+  slab.caption="Connecting"
+  graph.cls
+  gotdata=0
+  Set addr = nsMain.GetHost(host)
+  addr.Port = 80 'http
+  Set socket = nsMain.NewSocket
+  If Not socket.Socket Then
+    msgbox "Error: " & socket.lastError & vbCrLf
+    slab.caption="An error occurred!"
+    goget.enabled=true
+    goget.backcolor=rgb(100,255,100)
+    Exit Sub
+  End If   
+  If Not socket.Connect(addr) Then
+    msgbox "Error: " & socket.lastError & vbCrLf
+    slab.caption="An error occurred!"
+    goget.enabled=true
+    goget.backcolor=rgb(100,255,100)
+    Exit Sub
+  End If
+  conn.SetStream socket    ' Post request
+  conn.WriteText "GET " & page & " HTTP/1.0" & vbCrLf & "Host: " & host & vbCrLf & vbCrLf
+  Do
+    s = conn.ReadText(-2)
+    istr = istr & s
+  Loop While s <> ""
+  socket.Close
+  pos1=instr(istr,"<START>")
+  pos2=instr(istr,"<END>")
+  if pos1=0 or pos2=0 then
+    slab.caption="An error occurred!"
+    msgbox "A parsing error occurred!"
+  else
+    pos1=pos1+7
+    pos2=pos2-1
+    istr=mid(istr,pos1,pos2-pos1+1)
+    a=split(istr,",")
+    for cnt=0 to ubound(a,1)
+      samples(cnt+1)=a(cnt)
+    next
+    numsamples=ubound(a,1)+1
+    gotdata=1
+    slab.caption="Disconnected"
+    draw_graph
+  end if
+  goget.enabled=true
+  goget.backcolor=rgb(100,255,100)
+End Sub
+
+Sub About_Click
+  Msgbox aboutTxt,0,"About GeoGraph v1.0"
+End Sub
+
+Sub License_Click
+  Msgbox licenseTxt1,0,"GeoGraph License"
+  Msgbox licenseTxt2,0,"GeoGraph License"
+End Sub
+
+AddObject "CommandButton","goget",10,10,220,20
+AddObject "picturebox","graph",10,60,221,100
+AddObject "label","slab",10,180,221,100
+
+output.backcolor=rgb(20,20,255)
+graph.backcolor=rgb(20,20,255)
+slab.backcolor=rgb(20,20,255)
+slab.forecolor=vbwhite
+slab.alignment=2
+slab.caption="Disconnected"
+
+goget.Caption = "Go get it"
+goget.backcolor=rgb(100,255,100)
+graph.forecolor=vbblack
+graph.borderstyle=0
+graph.scalemode=3
+graph.drawwidth=1
+
+Dim titlebar
+titlebar=array("File","Help")
+setmenu "titlebar",titlebar
+Dim fileMenu
+fileMenu=array("Exit")
+setmenu "File",fileMenu
+Dim helpMenu
+helpMenu=array("About","License")
+setmenu "Help",helpMenu

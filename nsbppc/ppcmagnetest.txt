@@ -1,0 +1,450 @@
+'  Copyright (C) 2010  Andrew Thomas
+'
+'  This program is free software: you can
+'  redistribute it and/or modify it under the
+'  terms of the GNU General Public License
+'  as published by the Free Software Foundation,
+'  either version 3 of the License, or (at your
+'  option) any later version.
+'
+'  This program is distributed in the hope that
+'  it will be useful, but WITHOUT ANY
+'  WARRANTY; without even the implied
+'  warranty of MERCHANTABILITY or FITNESS
+'  FOR A PARTICULAR PURPOSE.  See the
+'  GNU General Public License for more details.
+'
+'  See http://www.gnu.org/licenses/ for full
+'  details of licenses.
+
+Option Explicit
+
+ShowOKButton True
+
+Dim magnet1(200), magnet2(200), heading(200)
+Dim gotdata, doingdata,AvMag1,AvMag2
+Dim Text,constat,rxtext,aboutTxt,licenseTxt1,licenseTxt2
+Dim numsamples,sampdone
+Dim ymax,ymin,range
+numsamples=200
+ymin=-300
+ymax=300
+constat=0
+gotdata=0
+doingdata=0
+
+aboutTxt="Programmed by: Andrew Thomas" & vbcrlf
+aboutTxt=aboutTxt & "Year(s): February 2010" & vbcrlf
+aboutTxt=aboutTxt & "For more details see www.geocomputing.co.uk"
+
+licenseTxt1="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+licenseTxt2="This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details." & vbcrlf & vbcrlf
+licenseTxt2=licenseTxt2 & "See http://www.gnu.org/licenses/ for full details of licenses." 
+
+Sub Output_load
+End Sub
+
+Sub Output_close
+  objPort.Enabled = False
+  Bye
+End Sub
+
+Sub Exit_Click
+  objPort.Enabled = False
+  Bye
+End Sub
+
+Sub AvAdjust
+  Dim cc
+  if gotdata=0 then
+    exit sub
+  end if
+  AvMag1=0
+  AvMag2=0
+  for cc=1 to numsamples
+    AvMag1=AvMag1+magnet1(cc)
+    AvMag2=AvMag2+magnet2(cc)
+  next
+  AvMag1=AvMag1/numsamples
+  AvMag2=AvMag2/numsamples
+  for cc=1 to numsamples
+    magnet1(cc)=magnet1(cc)-AvMag1
+    magnet2(cc)=magnet2(cc)-AvMag2
+  next
+rem  draw_graph
+End Sub
+
+Sub draw_graphback
+  graph.cls()
+  graph.penstyle=2
+  graph.drawline 0,graph.Height*(1/6),graph.Width,graph.Height*(1/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(2/6),graph.Width,graph.Height*(2/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(4/6),graph.Width,graph.Height*(4/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(5/6),graph.Width,graph.Height*(5/6),rgb(200,200,200)
+  graph.drawline graph.Width/4,0,graph.Width/4,graph.Height,rgb(200,200,200)
+  graph.drawline graph.Width/1.333,0,graph.Width/1.333,graph.Height,rgb(200,200,200)
+  graph.penstyle=1
+  graph.drawline 0,graph.Height*0.5,graph.Width,graph.Height*0.5,rgb(120,120,120)
+  graph.drawline graph.Width/2,0,graph.Width/2,graph.Height,rgb(120,120,120)
+End Sub
+
+Sub draw_graph
+  Dim x1, x2, y1, y2, cc
+  if gotdata=0 then
+    exit sub
+  end if
+  setfontsize
+  waitcursor true
+  draw_graphback
+  if zlevel.ListIndex = 0 then
+    ymin=-1000
+    ymax=1000
+  end if
+  if zlevel.ListIndex = 1 then
+    ymin=-900
+    ymax=900
+  end if
+  if zlevel.ListIndex = 2 then
+    ymin=-800
+    ymax=800
+  end if
+  if zlevel.ListIndex = 3 then
+    ymin=-700
+    ymax=700
+  end if
+  if zlevel.ListIndex = 4 then
+    ymin=-600
+    ymax=600
+  end if
+  if zlevel.ListIndex = 5 then
+    ymin=-500
+    ymax=500
+  end if
+  if zlevel.ListIndex = 6 then
+    ymin=-400
+    ymax=400
+  end if
+  if zlevel.ListIndex = 7 then
+    ymin=-300
+    ymax=300
+  end if
+  if zlevel.ListIndex = 8 then
+    ymin=-200
+    ymax=200
+  end if
+  if zlevel.ListIndex = 9 then
+    ymin=-100
+    ymax=100
+  end if
+  if zlevel.ListIndex = 10 then
+    ymin=-50
+    ymax=50
+  end if
+  if zlevel.ListIndex = 11 then
+    ymin=-25
+    ymax=25
+  end if
+  range=ymax-ymin
+  x1=(0/numsamples)*graph.Width
+  y1=graph.Height-(((magnet1(1)-ymin) /range)*graph.Height)
+  for cc=2 to numsamples
+     x2=(cc/numsamples)*graph.Width
+     y2=graph.Height-(((magnet1(cc)-ymin) /range) * graph.Height)
+      graph.drawline x1,y1,x2,y2,vbblue
+      x1=x2
+      y1=y2
+  next
+  x1=(0/numsamples)*graph.Width
+  y1=graph.Height-(((magnet2(1)-ymin) /range)*graph.Height)
+  for cc=2 to numsamples
+    x2=(cc/numsamples)*graph.Width
+    y2=graph.Height-(((magnet2(cc)-ymin) /range) * graph.Height)
+    graph.drawline x1,y1,x2,y2,vbred
+    x1=x2
+    y1=y2
+  next
+  graph.penstyle=1
+  graph.drawtext ymax,3,1,vbblue
+  graph.drawtext ymin,3,graph.Height - 17,vbblue
+  lab1.Caption = "Magnetometer: X(blue) Y(red)"
+  waitcursor false
+End Sub
+
+Sub Start_sample
+  if constat=0 then
+    exit sub
+  end if
+  sampdone=0
+  Text="7"
+  doingdata=1
+  Com_Write()
+End Sub
+
+Sub Com_Write()
+  objPort.Write(Text)
+  Text=""
+End Sub
+
+Sub objPort_OnRead(str)
+  Dim splt
+  if doingdata=0 then
+    exit sub
+  end if
+  If IsNull(str) Then
+    rem Do nothing
+  elseif str=chr(10) then
+    rem Do nothing
+  elseif str=chr(13) then
+    sampdone=sampdone+1
+    splt=split(rxtext,",")
+    heading(sampdone)=splt(0)
+    magnet1(sampdone)=splt(1)
+    magnet2(sampdone)=splt(2)
+    rxtext=""
+    lab1.Caption = sampdone & " of " & numsamples
+    if sampdone=numsamples then
+      gotdata=1
+      doingdata=0
+      waitcursor false
+      AvAdjust
+      draw_graph
+    end if
+  else
+    rxtext=rxtext+str
+  end if
+End Sub
+
+Sub SavePic_Click
+  dialog.DialogTitle = "Save graph bitmap"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "BMP File|*.bmp"
+  dialog.DefaultExt = "bmp"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    graph.saveimagetofile dialog.filename,0
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub About_Click
+  Msgbox aboutTxt,0,"About Magnetest v1.0"
+End Sub
+
+Sub License_Click
+  Msgbox licenseTxt1,0,"Magnetest License"
+  Msgbox licenseTxt2,0,"Magnetest License"
+End Sub
+
+Sub sample_Click
+  if constat=1 then
+    rxtext=""
+    waitcursor true
+    Start_sample()
+  end if
+End Sub
+
+Sub connect_Click()
+  if constat=0 then
+    objPort.BaudRate = 115200   
+    objPort.ComPort = useport.ListIndex+1
+    objPort.Timeout = 0 
+    objPort.ByteSize = 8 
+    objPort.BufferSize = 1
+    objPort.Parity = 0
+    objPort.StopBits = 1
+    objPort.Enabled = True
+    objPort.NoEvents = False
+    constat=1
+    connect.Caption = "Disconnect"
+  else
+    objPort.Enabled = False 
+    constat=0
+    connect.Caption = "Connect"
+  end if
+End Sub
+
+Sub Save_Click()
+  Dim cc,lineArray(3)
+  Dim txtFileName
+  if gotdata=0 then
+    exit sub
+  end if
+  dialog.DialogTitle = "Save magnetometer data"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "MAG File|*.mag"
+  dialog.DefaultExt = "mag"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 4, 2, 3, 500
+    file.lineprint "MagneTest,1.0"
+    file.lineprint "Magnetometer 1,Magnetometer 2"
+    for cc=1 to numsamples
+      lineArray(0)=heading(cc)
+      lineArray(1)=magnet1(cc)+AvMag1
+      lineArray(2)=magnet2(cc)+AvMag2
+      file.lineprint lineArray(0) & "," & lineArray(1) & "," & lineArray(2)
+    next
+    file.Close
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub Open_Click()
+  Dim cc,inst,a,b
+  Dim txtFileName
+  dialog.DialogTitle = "Load magnetometer data"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "MAG File|*.mag"
+  dialog.DefaultExt = "mag"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowOpen
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 1
+    inst=file.lineinputstring
+    a=split(inst,",")
+    if a(0)<>"MagneTest" then
+      msgbox "Not a valid MagneTest file!"
+      file.Close
+      draw_graph
+      exit sub
+    end if
+    rem Remove column headings
+    inst=file.lineinputstring
+    inst=file.lineinputstring
+    inst=file.lineinputstring
+    for cc=1 to numsamples
+      inst=file.lineinputstring
+      b=split(inst,",")
+      heading(cc)=b(0) 
+      magnet1(cc)=b(1) 
+      magnet2(cc)=b(2)
+    next
+    file.Close
+    gotdata=1
+    AvAdjust
+    draw_graph
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub zlevel_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  draw_graph
+End Sub
+
+Sub setfontsize
+  Dim ccc
+  for ccc=1 to 20
+    graph.fontsize=ccc
+    if graph.textwidth("Absolute") > 45 then
+      exit for
+    end if
+  next
+End Sub
+
+
+AddObject "serialce.port.1","objPort"
+AddObject "serialce.license","objlicense"
+objLicense.LicenseKey = "*** License ***"
+
+Output.backcolor=rgb(220,220,220)
+
+AddObject "NSBasic.ComDlg","dialog",0,0,0,0
+If Vartype(dialog)<>9 Then 
+  MsgBox "Common Dialog control not installed. Please check the ReadMe file's section on ""Install Device Components"" for more information."
+  Bye
+End If
+
+addObject "filesystem"
+addObject "file" 
+
+AddObject "picturebox", "graph", 10,10,221,174
+AddObject "Label", "lab1", 10, 190, 221, 20
+AddObject "ComboBox", "useport", 10, 240, 60, 100
+AddObject "ComboBox", "zlevel", 10, 215, 180, 100
+AddObject "CommandButton", "connect", 75, 240, 115, 20
+AddObject "CommandButton", "sample", 195, 215, 35, 45
+
+
+useport.AddItem "COM 1"
+useport.AddItem "COM 2"
+useport.AddItem "COM 3"
+useport.AddItem "COM 4"
+useport.AddItem "COM 5"
+useport.AddItem "COM 6"
+useport.AddItem "COM 7"
+useport.AddItem "COM 8"
+useport.AddItem "COM 9"
+useport.ListIndex = 5
+
+zlevel.AddItem "Zoom plus/minus 1000"
+zlevel.AddItem "Zoom plus/minus 900"
+zlevel.AddItem "Zoom plus/minus 800"
+zlevel.AddItem "Zoom plus/minus 700"
+zlevel.AddItem "Zoom plus/minus 600"
+zlevel.AddItem "Zoom plus/minus 500"
+zlevel.AddItem "Zoom plus/minus 400"
+zlevel.AddItem "Zoom plus/minus 300"
+zlevel.AddItem "Zoom plus/minus 200"
+zlevel.AddItem "Zoom plus/minus 100"
+zlevel.AddItem "Zoom plus/minus 50"
+zlevel.AddItem "Zoom plus/minus 25"
+zlevel.ListIndex = 5
+
+connect.Caption = "Connect"
+connect.backcolor=rgb(150,255,100)
+
+sample.Caption = "Go"
+sample.backcolor=rgb(255,100,100)
+
+graph.forecolor=vbblack
+graph.borderstyle=1
+graph.scalemode=3
+graph.drawwidth=1
+  
+graph.penstyle=2
+graph.drawline 0,graph.Height*(1/6),graph.Width,graph.Height*(1/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(2/6),graph.Width,graph.Height*(2/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(4/6),graph.Width,graph.Height*(4/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(5/6),graph.Width,graph.Height*(5/6),rgb(200,200,200)
+graph.drawline graph.Width/4,0,graph.Width/4,graph.Height,rgb(200,200,200)
+graph.drawline graph.Width/1.333,0,graph.Width/1.333,graph.Height,rgb(200,200,200)
+graph.penstyle=1
+graph.drawline 0,graph.Height*0.5,graph.Width,graph.Height*0.5,rgb(120,120,120)
+graph.drawline graph.Width/2,0,graph.Width/2,graph.Height,rgb(120,120,120)
+
+lab1.Caption = "No data"
+lab1.backcolor=Output.backcolor
+lab1.alignment=2
+
+
+Dim titlebar
+titlebar=array("File","Graph","Help")
+setmenu "titlebar",titlebar
+Dim fileMenu
+fileMenu=array("Open","Save","Exit")
+setmenu "File",fileMenu
+Dim graphMenu
+graphMenu=array("SavePic")
+setmenu "Graph",graphMenu
+Dim helpMenu
+helpMenu=array("About","License")
+setmenu "Help",helpMenu

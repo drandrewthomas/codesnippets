@@ -1,0 +1,184 @@
+'  IP address locator with KML waypoint output
+'
+'  Programmed by: Andrew Thomas
+'  Year(s): 2009-2010
+'
+'  This program is free software: you can
+'  redistribute it and/or modify it under the
+'  terms of the GNU General Public License
+'  as published by the Free Software Foundation,
+'  either version 3 of the License, or (at your
+'  option) any later version.
+'
+'  This program is distributed in the hope that
+'  it will be useful, but WITHOUT ANY
+'  WARRANTY; without even the implied
+'  warranty of MERCHANTABILITY or FITNESS
+'  FOR A PARTICULAR PURPOSE.  See the
+'  GNU General Public License for more details.
+'
+'  See http://www.gnu.org/licenses/ for full
+'  details of licenses.
+
+option explicit
+
+ShowOKButton True
+
+AddObject "newObjects.net.NSMain","NSMain"
+AddObject "newObjects.utilctls.SFStream","conn"
+AddObject "NSBasic.ComDlg","dialog",0,0,0,0
+If Vartype(dialog)<>9 Then 
+  MsgBox "Common Dialog control not installed. Please check the ReadMe file's section on ""Install Device Components"" for more information."
+  Bye
+End If
+addObject "filesystem"
+addObject "file"
+
+
+Dim addr,ipaddr,socket,dthost,dtpage,iphost,ippage
+Dim licenseTxt1,licenseTxt2,gotdata
+Dim latitude,longitude,qm
+gotdata=0
+qm=chr(34)
+
+' ************************************
+' * You need to change the host url and php *
+' * file location below and copy the php file   *
+' * to your own website.                            *
+' ************************************
+
+iphost="www.geocomputing.co.uk"
+ippage="/php/iplocation.php?ip="
+
+Sub goget_Click
+  Dim s,a,b,p,iptext
+  ip.Caption=""
+  lat.Caption=""
+  lng.Caption=""
+  country.Caption=""
+  city.Caption=""
+  Set ipaddr = nsMain.GetHost(txtHost.Text)
+  iptext = ipaddr.TextAddress
+  ip.Caption = "IP Address: " & ipaddr.TextAddress
+  Set addr = nsMain.GetHost(iphost)
+  addr.Port = 80 'http
+  Set socket = nsMain.NewSocket
+  If Not socket.Socket Then
+    msgbox "Error: " & socket.lastError
+    ip.Caption="An error occurred!"
+    Exit Sub
+  End If   
+  If Not socket.Connect(addr) Then
+    msgbox "Error: " & socket.lastError
+    ip.Caption="An error occurred!"
+    Exit Sub
+  End If
+  conn.SetStream socket    ' Post request
+  conn.WriteText "GET " & ippage & iptext & " HTTP/1.0" & vbCrLf & "Host: " & iphost & vbCrLf & vbCrLf
+  iptext=""
+  Do
+    s = conn.ReadText(-2)
+    iptext = iptext & s
+  Loop While s <> ""
+  socket.Close
+  a=instr(iptext,"<START>")
+  b=instr(iptext,"<END>")
+  iptext=mid(iptext,a+7,b-(a+7))
+  p=split(iptext,",")
+  if p(0)="" then
+    lat.Caption="Could not get position!"
+    gotdata=0
+  else
+    lat.Caption="Latitude: " & p(0)
+    lng.Caption="Longitude: " & p(1)
+    country.Caption="Country: " & p(2)
+    city.Caption="City: " & p(3)
+    latitude=p(0)
+    longitude=p(1)
+    gotdata=1
+  end if
+End Sub
+
+Sub SaveKML_Click()
+  Dim txtFileName
+  if gotdata=0 then
+    Msgbox "There currently isn't a location to save as a waypoint.",0,"No location data"
+    exit sub
+  end if
+  dialog.DialogTitle = "Save KML waypoint"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "KML File|*.kml"
+  dialog.DefaultExt = "kml"
+  dialog.filename = ""
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 4, 2, 3, 500
+    file.lineprint "<?xml version=" & qm & "1.0" & qm &" encoding=" & qm & "UTF-8" & qm & "?>"
+    file.lineprint "<kml xmlns=" & qm & "http://www.opengis.net/kml/2.2" & qm &">"
+    file.lineprint "<Placemark><name>"
+    file.lineprint txtHost.Text
+    file.lineprint "</name><description>"
+    file.lineprint txtHost.Text
+    file.lineprint "</description><Point><coordinates>"
+    file.lineprint longitude & "," & latitude & ",0"
+    file.lineprint "</coordinates></Point></Placemark></kml>"
+    file.Close
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub Exit_Click
+  Bye
+End Sub
+
+Sub About_Click
+  Msgbox "KML IP Locator PPC V1.0." & vbcrlf & vbcrlf & "A simple program for obtaining IP addresses and saving their locations to KML waypoints for viewing in Google Maps. Please note locations may not be very accurate, if at all." & vbcrlf & vbcrlf & "See www.geocomputing.co.uk for more information.",0,"About KML IP Locator"
+End Sub
+
+Sub License_Click
+  Msgbox licenseTxt1,0,"KML IP Locator License (1/2)"
+  Msgbox licenseTxt2,0,"KML IP Locator License (2/2)"
+End Sub
+
+AddObject "Label","lab1",10,10,220,25
+AddObject "TextBox","txtHost",10,35,220,25
+AddObject "CommandButton","goget",10,70,220,20
+AddObject "Label","ip",10,110,220,25
+AddObject "Label","lat",10,140,220,25
+AddObject "Label","lng",10,170,220,25
+AddObject "Label","country",10,200,220,25
+AddObject "Label","city",10,230,220,25
+
+txtHost.borderstyle=1
+txtHost.Text="www.geocomputing.co.uk"
+goget.Caption = "Get IP address and server location"
+goget.backcolor=rgb(100,255,100)
+lab1.Caption="Text URL:"
+lab1.backcolor=output.backcolor
+ip.backcolor=output.backcolor
+lat.backcolor=output.backcolor
+lng.backcolor=output.backcolor
+country.backcolor=output.backcolor
+city.backcolor=output.backcolor
+
+Dim titlebar
+titlebar=array("File","Waypoint","Help")
+setmenu "titlebar",titlebar
+Dim fileMenu
+fileMenu=array("Exit")
+setmenu "File",fileMenu
+Dim wayMenu
+wayMenu=array("SaveKML")
+setmenu "Waypoint",wayMenu
+Dim helpMenu
+helpMenu=array("About","License")
+setmenu "Help",helpMenu
+
+licenseTxt1="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+licenseTxt2="This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details." & vbcrlf & vbcrlf
+licenseTxt2=licenseTxt2 & "See http://www.gnu.org/licenses/ for full details of licenses." 

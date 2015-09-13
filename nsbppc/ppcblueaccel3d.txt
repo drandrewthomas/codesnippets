@@ -1,0 +1,641 @@
+'  Copyright (C) 2008-2010  Andrew Thomas
+'
+'  This program is free software: you can
+'  redistribute it and/or modify it under the
+'  terms of the GNU General Public License
+'  as published by the Free Software Foundation,
+'  either version 3 of the License, or (at your
+'  option) any later version.
+'
+'  This program is distributed in the hope that
+'  it will be useful, but WITHOUT ANY
+'  WARRANTY; without even the implied
+'  warranty of MERCHANTABILITY or FITNESS
+'  FOR A PARTICULAR PURPOSE.  See the
+'  GNU General Public License for more details.
+'
+'  See http://www.gnu.org/licenses/ for full
+'  details of licenses.
+
+Option Explicit
+
+ShowOKButton True
+
+Dim accel1(200), accel2(200), accel3(200), T(200)
+Dim gotdata, doingdata,AvAcc1,AvAcc2,AvAcc3
+Dim Text,constat,rxtext,fsps,ssps,timeTaken
+Dim numsamples,samplespersecond,gmode
+Dim ymax,ymin,range,perG,perGG(4)
+Dim aboutTxt,licenseTxt1,licenseTxt2
+fsps=100
+ssps=33
+perGG(1)=295
+perGG(2)=210
+perGG(3)=106
+perGG(4)=70
+perG=perGG(1)
+numsamples=200
+samplespersecond=100
+ymin=0
+ymax=1023
+constat=0
+gotdata=0
+doingdata=0
+gmode=0
+
+aboutTxt="Programmed by: Andrew Thomas" & vbcrlf
+aboutTxt=aboutTxt & "Year(s): 2008-2010" & vbcrlf
+aboutTxt=aboutTxt & "For more details see www.geocomputing.co.uk"
+
+licenseTxt1="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+licenseTxt2="This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details." & vbcrlf & vbcrlf
+licenseTxt2=licenseTxt2 & "See http://www.gnu.org/licenses/ for full details of licenses." 
+
+Sub Calib_Click()
+  if constat=0 then
+    exit sub
+  end if
+  gmode=gselect.listindex
+  Text=chr(asc("0")+gmode) & "c"
+  Com_Write()
+End Sub
+
+Sub LoadCal_Click()
+  if constat=0 then
+    exit sub
+  end if
+  gmode=gselect.listindex
+  Text=chrb(ascb("0")+gmode) & "l"
+  Com_Write()
+End Sub
+
+Sub SaveCal_Click()
+  if constat=0 then
+    exit sub
+  end if
+  gmode=gselect.listindex
+  Text=chrb(ascb("0")+gmode) & "s"
+  Com_Write()
+End Sub
+
+Sub Uncal_Click()
+  if constat=0 then
+    exit sub
+  end if
+  Text = "u"
+  Com_Write()
+End Sub
+
+Sub AvAdjust_Click
+  Dim cc
+  if gotdata=0 then
+    exit sub
+  end if
+  AvAcc1=0
+  AvAcc2=0
+  AvAcc3=0
+  for cc=1 to numsamples
+    AvAcc1=AvAcc1+accel1(cc)
+    AvAcc2=AvAcc2+accel2(cc)
+    AvAcc3=AvAcc3+accel3(cc)
+  next
+  AvAcc1=AvAcc1/numsamples
+  AvAcc2=AvAcc2/numsamples
+  AvAcc3=AvAcc3/numsamples
+  for cc=1 to numsamples
+    accel1(cc)=accel1(cc)-AvAcc1
+    accel2(cc)=accel2(cc)-AvAcc2
+    accel3(cc)=accel3(cc)-AvAcc3
+  next
+  draw_graph
+End Sub
+
+Sub Output_load
+End Sub
+
+Sub Output_close
+  objPort.Enabled = False
+  Bye
+End Sub
+
+Sub Exit_Click
+  objPort.Enabled = False
+  Bye
+End Sub
+
+Sub draw_graphback
+  graph.cls()
+  graph.penstyle=2
+  graph.drawline 0,graph.Height*(1/6),graph.Width,graph.Height*(1/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(2/6),graph.Width,graph.Height*(2/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(4/6),graph.Width,graph.Height*(4/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(5/6),graph.Width,graph.Height*(5/6),rgb(200,200,200)
+  graph.drawline graph.Width/4,0,graph.Width/4,graph.Height,rgb(200,200,200)
+  graph.drawline graph.Width/1.333,0,graph.Width/1.333,graph.Height,rgb(200,200,200)
+  graph.penstyle=1
+  graph.drawline 0,graph.Height*0.5,graph.Width,graph.Height*0.5,rgb(120,120,120)
+  graph.drawline graph.Width/2,0,graph.Width/2,graph.Height,rgb(120,120,120)
+End Sub
+
+Sub draw_graph
+  Dim x1, x2, y1, y2, cc
+  if gotdata=0 then
+    exit sub
+  end if
+  setfontsize
+  waitcursor true
+  draw_graphback
+  if zlevel.ListIndex = 0 then
+    ymin=-7
+    ymax=7
+  end if
+  if zlevel.ListIndex = 1 then
+    ymin=-6
+    ymax=6
+  end if
+  if zlevel.ListIndex = 2 then
+    ymin=-5
+    ymax=5
+  end if
+  if zlevel.ListIndex = 3 then
+    ymin=-4
+    ymax=4
+  end if
+  if zlevel.ListIndex = 4 then
+    ymin=-3
+    ymax=3
+  end if
+  if zlevel.ListIndex = 5 then
+    ymin=-2
+    ymax=2
+  end if
+  if zlevel.ListIndex = 6 then
+    ymin=-1.5
+    ymax=1.5
+  end if
+  if zlevel.ListIndex = 7 then
+    ymin=-1
+    ymax=1
+  end if
+  if zlevel.ListIndex = 8 then
+    ymin=-.5
+    ymax=0.5
+  end if
+  if zlevel.ListIndex = 9 then
+    ymin=-0.25
+    ymax=0.25
+  end if
+  if zlevel.ListIndex = 10 then
+    ymin=-0.1
+    ymax=0.1
+  end if
+  range=ymax-ymin
+  samplespersecond=numsamples/timeTaken
+  For cc=1 to numsamples
+    T(cc)=(1/(samplespersecond-1))*(cc-1)
+  Next
+  sgraph.Caption=formatnumber(T(1),3,true)
+  egraph.Caption=formatnumber(T(numsamples),3,true)
+  if xon.value=1 then
+    x1=(0/numsamples)*graph.Width
+    y1=graph.Height-(((accel1(1)-ymin) /range)*graph.Height)
+    for cc=2 to numsamples
+      x2=(cc/numsamples)*graph.Width
+      y2=graph.Height-(((accel1(cc)-ymin) /range) * graph.Height)
+      graph.drawline x1,y1,x2,y2,vbblue
+      x1=x2
+      y1=y2
+    next
+  end if
+  if yon.value=1 then
+    x1=(0/numsamples)*graph.Width
+    y1=graph.Height-(((accel2(1)-ymin) /range)*graph.Height)
+    for cc=2 to numsamples
+      x2=(cc/numsamples)*graph.Width
+      y2=graph.Height-(((accel2(cc)-ymin) /range) * graph.Height)
+      graph.drawline x1,y1,x2,y2,vbred
+      x1=x2
+      y1=y2
+    next
+  end if
+  if zon.value=1 then
+    x1=(0/numsamples)*graph.Width
+    y1=graph.Height-(((accel3(1)-ymin) /range)*graph.Height)
+    for cc=2 to numsamples
+      x2=(cc/numsamples)*graph.Width
+      y2=graph.Height-(((accel3(cc)-ymin) /range) * graph.Height)
+      graph.drawline x1,y1,x2,y2,vbgreen
+      x1=x2
+      y1=y2
+    next
+  end if
+  graph.penstyle=1
+  graph.drawtext ymax & "g",3,1,vbblue
+  graph.drawtext ymin & "g",3,graph.Height - 17,vbblue
+  waitcursor false
+End Sub
+
+Sub Start_sample
+  if constat=0 then
+    exit sub
+  end if
+  gmode=gselect.listindex
+  perG=perGG(gmode+1)
+  Text=chr(asc("0")+gmode)
+  if speed.listindex=0 then
+    Text = Text & "f"
+  elseif speed.listindex=1 then
+    Text = Text & "d"
+  end if
+  doingdata=1
+  Com_Write()
+End Sub
+
+Sub Process_sample
+  Dim z, zz, a, b, c, d, e, f, ogm
+  z = 0
+  For zz=1 to (numsamples * 6) Step 6
+    z = z + 1
+    a = Ascb(Mid(rxtext, zz, 1))
+    b = Ascb(Mid(rxtext, zz + 1, 1))
+    c = Ascb(Mid(rxtext, zz + 2, 1))
+    d = Ascb(Mid(rxtext, zz + 3, 1))
+    e = Ascb(Mid(rxtext, zz + 4, 1))
+    f = Ascb(Mid(rxtext, zz + 5, 1))
+    ' Rearranged to Fwd/Side/Up
+    accel3(z) = b + (a*256)
+    accel1(z) = d + (c*256)
+    accel2(z) = f + (e*256)
+    accel1(z) = (accel1(z)-512)/perG
+    accel2(z) = (accel2(z)-512)/perG
+    accel3(z) = (accel3(z)-512)/perG
+  Next
+  zz=(numsamples * 6)+1
+  a = Ascb(Mid(rxtext, zz, 1))
+  b = Ascb(Mid(rxtext, zz+1, 1))
+  timeTaken = b + (a*256)
+  timeTaken=timeTaken/1000
+  ogm = Ascb(Mid(rxtext, zz+2, 1))
+  if ogm <> gmode then
+    msgbox "An error occurred with the g mode setting. Graphed values may be inaccurate!",0,"G mode error"
+  end if
+  gselect.listindex=ogm
+End Sub
+
+Sub Com_Write()
+  objPort.Write(Text)
+  Text=""
+End Sub
+
+Sub objPort_OnRead(str)
+  Dim cc
+  if doingdata=0 then
+    exit sub
+  end if
+  If IsNull(str) Then
+    rem Do nothing
+  Else
+    rem Do something
+    rxtext=rxtext+str
+    If len(rxtext)=(numsamples*6)+3 then
+      gotdata=1
+      doingdata=0
+      Process_sample
+      waitcursor false
+      draw_graph
+    End If
+  End If
+End Sub
+
+Sub graph_mouseup(button, shift, x, y)
+  Dim tt,ttt,mstr,gd,a1,a2,a3,ax,ay
+  if gotdata=0 then
+    exit sub
+  end if
+  tt=(x/graph.Width)*numsamples
+  ttt=T(tt)
+  ttt=formatnumber(ttt,3,true)
+  a1=accel1(tt)
+  a1=formatnumber(a1,3,true)
+  a2=accel2(tt)
+  a2=formatnumber(a2,3,true)
+  a3=accel3(tt)
+  a3=formatnumber(a3,3,true)
+  ax=(tt/numsamples)*graph.Width
+  graph.fillcolor=vbwhite
+  mstr = "Time (sec) : " & ttt & vbcrlf
+  if xon.value=1 then
+    mstr=mstr & "Accel X (Blue): " & a1 & "g" & vbcrlf
+    ay=graph.Height-(((accel1(tt)-ymin) /range) * graph.Height)
+    graph.drawcircle ax,ay,3,vbblue
+  end if
+  if yon.value=1 then
+    mstr=mstr & "Accel Y (Red): " & a2 & "g" & vbcrlf
+    ay=graph.Height-(((accel2(tt)-ymin) /range) * graph.Height)
+    graph.drawcircle ax,ay,3,vbred
+  end if
+  if zon.value=1 then
+    mstr=mstr & "Accel Z (Green): " & a3 & "g" & vbcrlf
+    ay=graph.Height-(((accel3(tt)-ymin) /range) * graph.Height)
+    graph.drawcircle ax,ay,3,vbgreen
+  end if
+  msgbox mstr
+End Sub
+
+Sub Redraw_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  draw_graph
+End Sub
+
+Sub SavePic_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  dialog.DialogTitle = "Save graph bitmap"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "BMP File|*.bmp"
+  dialog.DefaultExt = "bmp"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    graph.saveimagetofile dialog.filename,0
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub About_Click
+  Msgbox aboutTxt,0,"About BlueAccel3D PPC V2.0"
+End Sub
+
+Sub License_Click
+  Msgbox licenseTxt1,0,"BlueAccel3D License"
+  Msgbox licenseTxt2,0,"BlueAccel3D License"
+End Sub
+
+Sub sample_Click
+  if constat=1 then
+    rxtext=""
+    waitcursor true
+    Start_sample()
+  end if
+End Sub
+
+Sub connect_Click()
+  if constat=0 then
+    objPort.BaudRate = 115200   
+    objPort.ComPort = useport.ListIndex+1
+    objPort.Timeout = 0 
+    objPort.ByteSize = 8 
+    objPort.BufferSize = 1
+    objPort.Parity = 0
+    objPort.StopBits = 1
+    objPort.Enabled = True
+    objPort.NoEvents = False
+    constat=1
+    connect.Caption = "Disconnect"
+  else
+    objPort.Enabled = False 
+    constat=0
+    connect.Caption = "Connect"
+  end if
+End Sub
+
+Sub Save_Click()
+  Dim cc,lineArray2(1),lineArray(2)
+  Dim txtFileName
+  if gotdata=0 then
+    exit sub
+  end if
+  dialog.DialogTitle = "Save acceleration data"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "ACC File|*.acc"
+  dialog.DefaultExt = "acc"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 4, 2, 3, 500
+    file.lineprint "BlueAccel,1.0"
+    file.lineprint "Speed," & speed.listindex
+    file.lineprint "Time (s)," & timeTaken
+    file.lineprint "GMode," & gmode
+    file.lineprint "Accel 1,Accel 2,Accel 3"
+    for cc=1 to numsamples
+      lineArray(0)=accel1(cc)
+      lineArray(1)=accel2(cc)
+      lineArray(2)=accel3(cc)
+      file.lineprint lineArray(0) & "," & lineArray(1) & "," & lineArray(2)
+    next
+    file.Close
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub Open_Click()
+  Dim cc,inst,a,b,lread
+  Dim txtFileName
+  dialog.DialogTitle = "Load acceleration data"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "ACC File|*.acc"
+  dialog.DefaultExt = "acc"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowOpen
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 1
+    inst=file.lineinputstring
+    a=split(inst,",")
+    if a(0)<>"BlueAccel" then
+      msgbox "Not a valid BlueAcc file!"
+      file.Close
+      draw_graph
+      exit sub
+    end if
+    inst=file.lineinputstring
+    a=split(inst,",")
+    speed.listindex=a(1)
+    inst=file.lineinputstring
+    a=split(inst,",")
+    timeTaken=a(1)
+    inst=file.lineinputstring
+    a=split(inst,",")
+    gmode=a(1)
+    gselect.listindex=gmode
+    rem Remove column headings
+    inst=file.lineinputstring
+    lread=0
+    for cc=1 to numsamples
+      inst=file.lineinputstring
+      if inst<>"" then
+        lread=lread+1
+      end if
+      b=split(inst,",")
+      accel1(cc)=b(0) 
+      accel2(cc)=b(1) 
+      accel3(cc)=b(2) 
+    next
+    file.Close
+    gotdata=1
+    draw_graph
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub zlevel_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  draw_graph
+End Sub
+
+Sub setfontsize
+  Dim ccc
+  for ccc=1 to 20
+    graph.fontsize=ccc
+    if graph.textwidth("Absolute") > 45 then
+      exit for
+    end if
+  next
+End Sub
+
+
+AddObject "serialce.port.1","objPort"
+AddObject "serialce.license","objlicense"
+objLicense.LicenseKey = "*** License ***"
+
+Output.backcolor=rgb(220,220,220)
+
+AddObject "NSBasic.ComDlg","dialog",0,0,0,0
+If Vartype(dialog)<>9 Then 
+  MsgBox "Common Dialog control not installed. Please check the ReadMe file's section on ""Install Device Components"" for more information."
+  Bye
+End If
+
+addObject "filesystem"
+addObject "file" 
+
+AddObject "picturebox", "graph", 10,10,221,150
+AddObject "Label", "sgraph", 10, 165, 60, 20
+AddObject "Label", "lab1", 75, 166, 95, 20
+AddObject "Label", "egraph", 175, 165, 55, 20
+addObject "checkbox","xon",10,190,70,20
+addObject "checkbox","yon",90,190,70,20
+addObject "checkbox","zon",170,190,70,20
+AddObject "ComboBox", "useport", 10, 240, 60, 100
+AddObject "ComboBox", "zlevel", 10, 215, 70, 100
+AddObject "ComboBox", "gselect", 85, 215, 50, 100
+AddObject "ComboBox", "speed", 140, 215, 50, 100
+zlevel.AddItem "Zx7g"
+zlevel.AddItem "Zx6g"
+zlevel.AddItem "Zx5g"
+zlevel.AddItem "Zx4g"
+zlevel.AddItem "Zx3g"
+zlevel.AddItem "Zx2g"
+zlevel.AddItem "Zx1.5g"
+zlevel.AddItem "Zx1g"
+zlevel.AddItem "Zx0.5g"
+zlevel.AddItem "Zx0.25g"
+zlevel.AddItem "Zx0.1g"
+AddObject "CommandButton", "connect", 75, 240, 115, 20
+AddObject "CommandButton", "sample", 195, 215, 35, 45
+
+
+useport.AddItem "COM 1"
+useport.AddItem "COM 2"
+useport.AddItem "COM 3"
+useport.AddItem "COM 4"
+useport.AddItem "COM 5"
+useport.AddItem "COM 6"
+useport.AddItem "COM 7"
+useport.AddItem "COM 8"
+useport.AddItem "COM 9"
+useport.ListIndex = 5
+
+speed.AddItem "Fast"
+speed.AddItem "Slow"
+speed.ListIndex = 0
+
+gselect.AddItem "1.5g"
+gselect.AddItem "2g"
+gselect.AddItem "4g"
+gselect.AddItem "6g"
+gselect.ListIndex = 0
+
+zlevel.ListIndex = 0
+
+connect.Caption = "Connect"
+connect.backcolor=rgb(150,255,100)
+
+sample.Caption = "Go"
+sample.backcolor=rgb(255,100,100)
+
+graph.forecolor=vbblack
+graph.borderstyle=1
+graph.scalemode=3
+graph.drawwidth=1
+  
+graph.penstyle=2
+graph.drawline 0,graph.Height*(1/6),graph.Width,graph.Height*(1/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(2/6),graph.Width,graph.Height*(2/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(4/6),graph.Width,graph.Height*(4/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(5/6),graph.Width,graph.Height*(5/6),rgb(200,200,200)
+graph.drawline graph.Width/4,0,graph.Width/4,graph.Height,rgb(200,200,200)
+graph.drawline graph.Width/1.333,0,graph.Width/1.333,graph.Height,rgb(200,200,200)
+graph.penstyle=1
+graph.drawline 0,graph.Height*0.5,graph.Width,graph.Height*0.5,rgb(120,120,120)
+graph.drawline graph.Width/2,0,graph.Width/2,graph.Height,rgb(120,120,120)
+
+sgraph.Caption = "0"
+sgraph.backcolor=Output.backcolor
+sgraph.alignment=2
+
+lab1.Caption = "<- T (sec) ->"
+lab1.backcolor=Output.backcolor
+lab1.alignment=2
+
+egraph.Caption = "0"
+egraph.backcolor=Output.backcolor
+egraph.alignment=2
+
+xon.caption="Fwd (X)"
+xon.value=true
+xon.backcolor=Output.backcolor
+xon.forecolor=vbblue
+yon.caption="Side (Y)"
+yon.value=true
+yon.backcolor=Output.backcolor
+yon.forecolor=vbred
+zon.caption="Up (Z)"
+zon.value=true
+zon.backcolor=Output.backcolor
+zon.forecolor=vbgreen
+
+Dim titlebar
+titlebar=array("File","Graph","Calib","Help")
+setmenu "titlebar",titlebar
+Dim fileMenu
+fileMenu=array("Open","Save","Exit")
+setmenu "File",fileMenu
+Dim graphMenu
+graphMenu=array("AvAdjust","Redraw","SavePic")
+setmenu "Graph",graphMenu
+Dim calibMenu
+calibMenu=array("Calib","LoadCal","SaveCal","Uncal")
+setmenu "Calib",calibMenu
+Dim helpMenu
+helpMenu=array("About","License")
+setmenu "Help",helpMenu

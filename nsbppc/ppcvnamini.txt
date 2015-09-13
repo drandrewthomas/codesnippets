@@ -1,0 +1,900 @@
+'  VNAMini for the Pocket PC
+'  Programmed by: Andrew Thomas
+'  Year(s): 2007-2010
+'
+'  This program is free software: you can
+'  redistribute it and/or modify it under the
+'  terms of the GNU General Public License
+'  as published by the Free Software Foundation,
+'  either version 3 of the License, or (at your
+'  option) any later version.
+'
+'  This program is distributed in the hope that
+'  it will be useful, but WITHOUT ANY
+'  WARRANTY; without even the implied
+'  warranty of MERCHANTABILITY or FITNESS
+'  FOR A PARTICULAR PURPOSE.  See the
+'  GNU General Public License for more details.
+'
+'  See http://www.gnu.org/licenses/ for full
+'  details of licenses.
+
+
+ShowOKButton True
+
+Dim phase_angle(500), return_loss(500)
+Dim cal_loss(500)
+Dim AttOffset,dodboverlay
+Dim gr_data(500),correctFbug,gotdata
+Dim Text,constat,rxtext,ddssize,gts
+Dim rtmode, startfreq, endfreq, ccc
+Dim numsamples,stepsize,adc12max
+Dim ymax,ymin,range,autoscale
+Dim avr_vref,docals,iscaled,extender
+Dim overlaydb(500),qt,gtype
+Dim txtFileName,aboutTxt,licenseTxt1,licenseTxt2
+qt=chr(34)
+numsamples=500
+rtmode=0 ' reflection mode
+startfreq = 100000
+endfreq = 180000000
+ddssize=10.737
+constat=0
+adc12max=1024
+avr_vref=1.8
+correctFbug=1
+gotdata=0
+docals=0
+dodboverlay=0
+iscaled=0
+extender=0
+AttOffset=10
+stepsize=((endfreq-startfreq)/(numsamples-1))
+
+aboutTxt="Programmed by: Andrew Thomas" & vbcrlf
+aboutTxt=aboutTxt & "Year(s): 2007-2010" & vbcrlf
+aboutTxt=aboutTxt & "For more details see www.geocomputing.co.uk"
+
+licenseTxt1="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+licenseTxt2="This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details." & vbcrlf & vbcrlf
+licenseTxt2=licenseTxt2 & "See http://www.gnu.org/licenses/ for full details of licenses." 
+
+
+function splitdot(number)
+  if(mid(cstr(0.001),2,1)=",") then
+    splitdot=cdbl(replace(cstr(number),".",","))
+  else
+    splitdot=number
+  end if
+end function
+
+function dotnum(number) 
+  Dim ipart,dpart   
+  ipart=int(number)
+  dpart=number-ipart
+  dpart=int(dpart*100000) 
+  dotnum=ipart & "." & dpart
+end function
+
+function logT(number)
+  On Error Resume Next        
+  logT=log(number)/log(10)
+end function
+
+Sub Output_load
+  load_settings
+  setctlvals
+End Sub
+
+Sub SaveSettings_Click
+  save_settings
+End Sub
+
+Sub Output_close
+  objPort.Enabled = False
+  Bye
+End Sub
+
+Sub Exit_Click
+  objPort.Enabled = False
+  Bye
+End Sub
+
+Sub message(mstr)
+  Dim x,y
+  setfontsize
+  x=(graph.Width/2)-25
+  y=(graph.Height/2)-9
+  graph.drawtext mstr,x,y,vbblue
+end sub
+
+Sub calvals
+  Dim cc,t_loss1,t_loss2
+  message("Calibrating dB...")
+  for cc=1 to numsamples
+    return_loss(cc)=(return_loss(cc)+500) - (cal_loss(cc)+500)
+  next
+  iscaled=1
+end sub
+
+Sub select_grdata
+  Dim cc
+  gtype=grptype.ListIndex
+  for cc=1 to numsamples
+    if gtype=0 then
+      rem Return loss
+      gr_data(cc)=return_loss(cc)
+    end if
+    if gtype=1 then
+      rem Phase angle
+      gr_data(cc)=phase_angle(cc)
+    end if
+    if gtype=2 then
+      rem Reflection magnitude
+     gr_data(cc) = 10^((-1*return_loss(cc))/20)
+    end if
+    if gtype=3 then
+      rem SWR
+      gr_data(cc)=10^((-1*return_loss(cc))/20)
+      if gr_data(cc)=1 then
+        gr_data(cc)=1000000
+      else
+        gr_data(cc)=(1+gr_data(cc))/(1-gr_data(cc))
+      end if
+      gr_data(cc)=abs(gr_data(cc))
+    end if
+  next
+  if gtype=0 then
+    rem Return loss
+    if zlevel.ListIndex=0 then
+      ymin=40
+      ymax=0
+    elseif zlevel.ListIndex=1 then
+      ymin=20
+      ymax=0
+    elseif zlevel.ListIndex=2 then
+      ymin=10
+      ymax=0
+    elseif zlevel.ListIndex=3 then
+      ymin=10
+      ymax=-10
+    elseif zlevel.ListIndex=4 then
+      ymin=40
+      ymax=-40
+    end if
+    gts=" db"
+  end if
+  if gtype=1 then
+    rem Phase angle
+    ymin=0
+    ymax=180
+    gts="°"
+  end if
+  if gtype=2 then
+    rem Reflection magnitude
+    ymin=0
+    ymax=2
+    gts=""
+  end if
+  if gtype=3 then
+    rem SWR
+    if zlevel.ListIndex=0 then
+      ymin=0
+      ymax=100
+    elseif zlevel.ListIndex=1 then
+      ymin=0
+      ymax=50
+    elseif zlevel.ListIndex=2 then
+      ymin=0
+      ymax=20
+    elseif zlevel.ListIndex=3 then
+      ymin=0
+      ymax=10
+    elseif zlevel.ListIndex=4 then
+      ymin=0
+      ymax=5
+    end if
+    gts=""
+  end if
+  range=ymax-ymin
+End Sub
+
+Sub grptype_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  draw_graph
+End Sub
+
+Sub draw_graph
+  Dim x1, x2, y1, y2, cc, rmtxt
+  if gotdata=0 then
+    exit sub
+  end if
+  setfontsize
+  waitcursor true
+  message("Redrawing...")
+  select_grdata
+  graph.cls()
+  graph.penstyle=2
+  graph.drawline 0,graph.Height*(1/6),graph.Width,graph.Height*(1/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(2/6),graph.Width,graph.Height*(2/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(4/6),graph.Width,graph.Height*(4/6),rgb(200,200,200)
+  graph.drawline 0,graph.Height*(5/6),graph.Width,graph.Height*(5/6),rgb(200,200,200)
+  graph.drawline graph.Width/4,0,graph.Width/4,graph.Height,rgb(200,200,200)
+  graph.drawline graph.Width/1.333,0,graph.Width/1.333,graph.Height,rgb(200,200,200)
+  graph.penstyle=1
+  graph.drawline 0,graph.Height*0.5,graph.Width,graph.Height*0.5,rgb(120,120,120)
+  graph.drawline graph.Width/2,0,graph.Width/2,graph.Height,rgb(120,120,120)
+  x1=(0/numsamples)*graph.Width
+  y1=graph.Height-(((gr_data(1)-ymin) /range)*graph.Height)
+  for cc=2 to numsamples
+    x2=(cc/numsamples)*graph.Width
+    y2=graph.Height-(((gr_data(cc)-ymin) /range) * graph.Height)
+    graph.drawline x1,y1,x2,y2,vbred
+    x1=x2
+    y1=y2
+  next
+  graph.penstyle=2
+  draw_dboverlay
+  graph.penstyle=1
+  if iscaled=0 then
+    rmtxt = " (Absolute)"
+  else
+    if grptype.ListIndex = 1 then
+      rmtxt = " (Absolute)"
+    else
+      rmtxt = " (Relative)"
+    end if
+  end if
+  graph.drawtext ymax & gts & rmtxt,3,1,vbblue
+  graph.drawtext ymin & gts,3,graph.Height - 17,vbblue
+  graph.drawtext (ymax+ymin)/2 & gts,3,(graph.Height/2)-13,vbblue
+  waitcursor false
+  setctlvals
+End Sub
+
+Sub draw_dboverlay
+  Dim x1, x2, y1, y2, cc
+  if dodboverlay=0 then
+    exit sub
+  end if
+  if grptype.ListIndex<>0 then
+    exit sub
+  end if
+  x1=(0/numsamples)*graph.Width
+  y1=graph.Height-(((overlaydb(1)-ymin) /range)*graph.Height)
+  for cc=2 to numsamples
+    x2=(cc/numsamples)*graph.Width
+    y2=graph.Height-(((overlaydb(cc)-ymin) /range) * graph.Height)
+    graph.drawline x1,y1,x2,y2,rgb(100,100,100)
+    x1=x2
+    y1=y2
+  next
+  graph.penstyle=1
+End Sub
+
+Sub Start_VNA
+  Dim adjstart,tf
+  message("Sweeping...")
+  rtmode=measmode.ListIndex
+  startfreq=cdbl(sfreq.Text)*1000
+  endfreq=cdbl(efreq.Text)*1000
+  if startfreq>endfreq then
+    tf=startfreq
+    startfreq=endfreq
+    endfreq=tf
+    setctlvals
+  end if
+  if startfreq<1000 then
+    startfreq=1000
+    setctlvals
+  end if
+  if endfreq>200000000 then
+    endfreq=200000000
+    setctlvals
+  end if
+  stepsize=((endfreq-startfreq) / (numsamples-1))
+  if correctFbug=1 then
+    adjstart=startfreq-stepsize
+  else
+    adjstart=startfreq
+  end if
+  Text = (rtmode) & Chr(13)
+  Com_Write()
+  Sleep (100)
+  Text = (adjstart * ddssize) & Chr(13)
+  Com_Write()
+  Sleep (100)
+  Text = (numsamples) & Chr(13) 
+  Com_Write()
+  Sleep (100)
+  Text = (stepsize * ddssize) & Chr(13)
+  Com_Write()
+End Sub
+
+Sub Process_VNA
+  Dim x, i, z, zz, angle1, angle2
+  Dim return_loss1, return_loss2 
+  Dim adjf,padj,rladj
+  adjf=avr_vref/adc12max
+  padj=180/1.8
+  rladj=60/1.8
+  z = 0
+  For zz=1 to (numsamples * 4) Step 4
+    z = z + 1
+    angle1 = Ascb(Mid(rxtext, zz, 1))
+    angle2 = Ascb(Mid(rxtext, (zz + 1), 1))
+    phase_angle(z) = angle1 + (angle2*256)
+    phase_angle(z) = phase_angle(z)*adjf    
+    phase_angle(z) = phase_angle(z)*padj
+    if phase_angle(z)<0 then
+      phase_angle(z)=phase_angle(z)*(-1)
+    end if
+  Next
+  z=0
+  For zz = 3 To (numsamples * 4) Step 4
+    z = z + 1
+    return_loss1 = Ascb(Mid(rxtext, zz, 1))
+    return_loss2 = Ascb(Mid(rxtext, (zz + 1), 1))
+    return_loss(z) = return_loss1 + (return_loss2*256)
+    return_loss(z) = return_loss(z)*adjf
+    return_loss(z) = -30+(return_loss(z)*rladj)
+    if rtmode=0 then
+      return_loss(z) = return_loss(z)+AttOffset
+    end if
+  Next 
+  iscaled=0
+  if docals=1 then
+    calvals
+    iscaled=1
+  end if
+End Sub
+
+Sub doheader(str)
+  Dim a
+  a=split(str,",")
+  if a(0)="RT Mode" then
+    rtmode=a(1)
+  elseif a(0)="Start (Hz)" then
+    startfreq=splitdot(a(1))
+  elseif a(0)="End (Hz)" then
+    endfreq=splitdot(a(1))
+  elseif a(0)="Samples (No)" then
+    numsamples=splitdot(a(1))
+  elseif a(0)="Step size (Hz)" then
+    stepsize=splitdot(a(1))
+  elseif a(0)= "Calibrated (N/Y)" then
+    iscaled=a(1)
+  elseif a(0)= "Extender (N/Y)" then
+    extender=a(1)
+  elseif a(0)= "Attenuator offset" then
+    AttOffset=splitdot(a(1))
+  elseif a(0)= "COM port" then
+    useport.ListIndex=a(1)
+  else
+    rem An unknown header was found !!!
+  end if
+End Sub
+
+Sub setdefaults
+  docals=0
+  rtmode=0
+  numsamples=220
+  ddssize=10.737
+  adc12max=1023
+  avr_vref=1.8
+  autoscale=0
+  correctFbug=0
+  gotdata=0
+  startfreq=100000
+  endfreq=200000000
+  setctlvals
+End Sub
+
+Sub setctlvals
+  measmode.ListIndex = rtmode
+  sfreq.Text = startfreq/1000
+  efreq.Text = endfreq/1000
+End Sub
+
+Sub Com_Write()
+  objPort.Write(Text)
+  Text=""
+End Sub
+
+Sub objPort_OnRead(str)
+  Dim cc
+  If IsNull(str) Then
+    rem Do nothing
+  Else
+    rem Do something
+    rxtext=rxtext+str
+    If len(rxtext)=(numsamples*4) then
+      gotdata=1
+      Process_VNA
+      waitcursor false
+      draw_graph
+    End If
+  End If
+End Sub
+
+Sub graph_mouseup(button, shift, x, y)
+  Dim cc,F,mstr,gt,gd,ax,ay
+  if gotdata=0 then
+    exit sub
+  end if
+  gtype=grptype.ListIndex
+  if gtype=0 then
+    gt="Loss (db): "
+  end if
+  if gtype=1 then
+    gt="Phase (°): "
+  end if
+  if gtype=2 then
+    gt="MR: "
+  end if
+  if gtype=3 then
+    gt="SWR: "
+  end if
+  cc=(x/graph.Width)*numsamples
+  F=(((cc-1)*stepsize)+startfreq)/1000
+  F=formatnumber(F,3,true)
+  gd=gr_data(cc)
+  gd=formatnumber(gd,3,true)
+  mstr = "Frequency (kHz) : " & F & vbcrlf
+  mstr=mstr & gt & gd
+  ax=(cc/numsamples)*graph.Width
+  ay=graph.Height-(((gr_data(cc)-ymin) /range) * graph.Height)
+  graph.fillcolor=vbwhite
+  graph.drawcircle ax,ay,3,vblue
+  msgbox mstr,0,"Graph value"
+End Sub
+
+Sub Redraw_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  draw_graph
+End Sub
+
+Sub SavePic_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  dialog.DialogTitle = "Save graph bitmap"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "BMP File|*.bmp"
+  dialog.DefaultExt = "bmp"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    graph.saveimagetofile dialog.filename,0
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub About_Click
+  Msgbox aboutTxt,0,"About VNA Mini v1.4"
+End Sub
+
+Sub License_Click
+  Msgbox licenseTxt1,0,"VNA Mini License"
+  Msgbox licenseTxt2,0,"VNA Mini License"
+End Sub
+
+Sub SetRef_Click
+  Dim cc
+  if gotdata=0 then
+    exit sub
+  end if
+  for cc=1 to numsamples
+    cal_loss(cc)=return_loss(cc)
+  next
+  docals=1
+  calvals
+  draw_graph
+End Sub
+
+Sub Adj2Ref_Click
+  Dim ok
+  if gotdata=0 then
+    exit sub
+  end if
+  if docals=0 then
+    exit sub
+  end if
+  if iscaled=1 then
+    ok=msgbox("Data is already adjusted - adjusting again may result in useless data. Do you really want to adjust the data now?", vbInformation + vbYesNo, "Adjust now?")
+    if ok=vbNo then
+      exit sub
+    end if
+  end if
+  calvals
+  draw_graph
+End Sub
+
+Sub Defaults_Click
+  setdefaults
+End Sub
+
+Sub sweep_Click
+  if constat=1 then
+    rxtext=""
+    waitcursor true
+    Start_VNA()
+  end if
+End Sub
+
+Sub connect_Click()
+    if constat=0 then
+      objPort.BaudRate = 115200   
+      objPort.ComPort = useport.ListIndex+1
+      objPort.Timeout = 0 
+      objPort.ByteSize = 8 
+      objPort.BufferSize = 1
+      objPort.Parity = 0
+      objPort.StopBits = 1
+      objPort.Enabled = True
+      objPort.NoEvents = False
+      constat=1
+      connect.Caption = "Disconnect"
+    else
+      objPort.Enabled = False 
+      constat=0
+      connect.Caption = "Connect"
+    end if
+End Sub
+
+Sub ExportCSV_Click()
+  Dim cc,lineArray2(1),lineArray(2)
+  if gotdata=0 then
+    exit sub
+  end if
+  dialog.DialogTitle = "Export data to a CSV file"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "CSV File|*.csv"
+  dialog.DefaultExt = "csv"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 4, 2, 3, 500
+    file.lineprint qt & "Frequency(Hz)" & qt & "," & qt & "Return Loss(dB)" & qt & "," & qt & "Phase(deg)" & qt
+    for cc=1 to numsamples
+      lineArray(0)=dotnum(startfreq+((cc-1)*stepsize))
+      lineArray(1)=dotnum(return_loss(cc))
+      lineArray(2)=dotnum(phase_angle(cc))
+      file.lineprint lineArray(0) & "," & lineArray(1) & "," & lineArray(2)
+    next
+    file.Close
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub Save_Click()
+  Dim cc,lineArray2(1),lineArray(2)
+  if gotdata=0 then
+    exit sub
+  end if
+  dialog.DialogTitle = "Save measurement data"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "VNM File|*.vnm"
+  dialog.DefaultExt = "vnm"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 4, 2, 3, 500
+    file.lineprint "VNAMini,1.0"
+    file.lineprint "Header lines,7"
+    file.lineprint "RT Mode," & rtmode
+    file.lineprint "Start (Hz)," & dotnum(startfreq)
+    file.lineprint "End (Hz)," & dotnum(endfreq)
+    file.lineprint "Samples (No)," & dotnum(numsamples)
+    file.lineprint "Step size (Hz)," & dotnum(stepsize)
+    file.lineprint "Calibrated (N/Y)," & iscaled
+    file.lineprint "Extender (N/Y)," & extender
+    file.lineprint "Freq (Hz),RL (dB),Phs (deg)"
+    for cc=1 to numsamples
+      lineArray(0)=dotnum(startfreq+((cc-1)*stepsize))
+      lineArray(1)=dotnum(return_loss(cc))
+      lineArray(2)=dotnum(phase_angle(cc))
+      file.lineprint lineArray(0) & "," & lineArray(1) & "," & lineArray(2)
+    next
+    file.Close
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub Open_Click()
+  Dim cc,inst,a,b,lread
+  message("Loading...")
+  dialog.DialogTitle = "Load measurement data"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "VNM File|*.vnm"
+  dialog.DefaultExt = "vnm"
+  dialog.filename = ""   'initialize
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowOpen
+  If Err.Number = 0 Then
+    txtFileName = dialog.filename
+    file.Open txtFileName, 1
+    inst=file.lineinputstring
+    a=split(inst,",")
+    if a(0)<>"VNAMini" then
+      msgbox "Not a valid VNAMini file!"
+      file.Close
+      draw_graph
+      exit sub
+    end if
+    inst=file.lineinputstring
+    a=split(inst,",")
+    if a(0)="Header lines" then
+      for cc=1 to a(1)
+        inst=file.lineinputstring
+        doheader(inst)
+      next
+    else
+      msgbox "Not a valid VNAMini file!"
+      file.Close
+      draw_graph
+      exit sub
+    end if
+    rem Remove column headings
+    inst=file.lineinputstring
+    lread=0
+    for cc=1 to numsamples
+      inst=file.lineinputstring
+      if inst<>"" then
+        lread=lread+1
+      end if
+      b=split(inst,",")
+      return_loss(cc)=splitdot(b(1))
+      phase_angle(cc)=splitdot(b(2))
+    next
+    file.Close
+    gotdata=1
+    setctlvals()
+    draw_graph
+  End If
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+Sub load_settings()
+  On Error Resume Next
+  Dim spath,cc,inst,a
+  spath = left(currentpath, len(currentpath)-3) & "ini"
+  file.Open spath, 1
+  If Err <> 0 Then
+    file.Close
+    save_settings
+    exit sub
+  End If
+  rem Remove heading line
+  inst=file.lineinputstring
+  inst=file.lineinputstring
+  a=split(inst,",")
+  if a(0)="Settings lines" then
+    for cc=1 to a(1)
+      inst=file.lineinputstring
+      doheader(inst)
+    next
+  end if
+  file.Close
+End Sub
+
+Sub save_settings()
+  Dim spath,cc
+  spath = left(currentpath, len(currentpath)-3) & "ini"
+  file.Open spath, 4, 2, 3, 500
+  file.lineprint "[VNAMini Settings]"
+  file.lineprint "Settings lines,6"
+  file.lineprint "RT Mode," & rtmode
+  file.lineprint "Start (Hz)," & dotnum(cdbl(sfreq.Text)*1000)
+  file.lineprint "End (Hz)," & dotnum(cdbl(efreq.Text)*1000)
+  file.lineprint "Extender (N/Y)," & extender
+  file.lineprint "Attenuator offset," & dotnum(AttOffset)
+  file.lineprint "COM port," & useport.ListIndex
+  file.lineprint "[End],0"
+  file.Close
+End Sub
+
+Sub zlevel_Click
+  if gotdata=0 then
+    exit sub
+  end if
+  if grptype.ListIndex = 1 then
+    exit sub
+  end if
+  draw_graph
+End Sub
+
+Sub dBoffsetAv_Click
+  Dim cc,tot,ok
+  tot=0
+  if gotdata=0 then
+    exit sub
+  end if
+  ok=msgbox("To set attenuator offset, you should first set dB Reflection offset to zero and measure, or load a file containing, no-connection data. Do you really want to calculate an average offset now?", vbInformation + vbYesNo, "dB offset now?")
+  if ok=vbNo then
+    exit sub
+  end if
+  for cc=1 to numsamples
+    tot=tot+(return_loss(cc))
+  next
+  AttOffset=tot/numsamples
+  AttOffset=AttOffset*(-1)
+  msgbox "Future reflection mode return loss measurements will have an attenuator offset of " & AttOffset & "dB.",0,"Average dB offset"
+End Sub
+
+Sub dBoffsetInfo_Click
+  msgbox "Attenuator reflection mode offset is currently set to " & AttOffset & "dB.",0,"Value of dB offset"
+End Sub
+
+Sub dBoffsetZero_Click
+  AttOffset=0
+  msgbox "Attenuator reflection mode offset has been set to " & AttOffset & "dB.",0,"dB offset zeroed"
+End Sub
+
+Sub dBOverlay_Click
+  Dim cc
+  if gotdata=0 then
+    exit sub
+  end if
+  for cc=1 to numsamples
+      overlaydb(cc)=return_loss(cc)
+  next
+  dodboverlay=1
+  draw_graph
+End Sub
+
+Sub CancelOverlay_Click
+  if dodboverlay=0 then
+    exit sub
+  end if
+  dodboverlay=0
+  draw_graph
+End Sub
+
+Sub setfontsize
+  for ccc=1 to 20
+    graph.fontsize=ccc
+    if graph.textwidth("Absolute") > 45 then
+      exit for
+    end if
+  next
+End Sub
+
+
+
+AddObject "serialce.port.1","objPort"
+AddObject "serialce.license","objlicense"
+objLicense.LicenseKey = "*** Insert code here ***"
+
+Output.backcolor=rgb(200,200,200)
+
+AddObject "NSBasic.ComDlg","dialog",0,0,0,0
+  If Vartype(dialog)<>9 Then 
+   MsgBox "Common Dialog control not installed. Please check the ReadMe file's section on ""Install Device Components"" for more information."
+    Bye
+  End If
+
+addObject "filesystem"
+addObject "file"
+
+
+AddObject "ComboBox", "useport", 10, 240, 60, 100
+AddObject "ComboBox", "grptype", 75, 215, 45, 100
+grptype.AddItem "dB"
+grptype.AddItem "Phs"
+grptype.AddItem "MR"
+grptype.AddItem "swr"
+AddObject "ComboBox", "zlevel", 125, 215, 45, 100
+zlevel.AddItem "Z1"
+zlevel.AddItem "Z2"
+zlevel.AddItem "Z3"
+zlevel.AddItem "Z4"
+zlevel.AddItem "Z5"
+AddObject "ComboBox", "measmode", 10, 215, 60, 100
+measmode.AddItem "Refl"
+measmode.AddItem "Tran"
+AddObject "CommandButton", "connect", 75, 240, 95, 20
+AddObject "CommandButton", "sweep", 175, 215, 55, 45
+AddObject "TextBox", "sfreq", 10, 5, 60, 20
+AddObject "Label", "lab1", 75, 6, 95, 20
+AddObject "TextBox", "efreq", 175, 5, 55, 20
+AddObject "picturebox", "graph", 10,30,221,180
+    
+useport.AddItem "COM 1"
+useport.AddItem "COM 2"
+useport.AddItem "COM 3"
+useport.AddItem "COM 4"
+useport.AddItem "COM 5"
+useport.AddItem "COM 6"
+useport.AddItem "COM 7"
+useport.AddItem "COM 8"
+useport.AddItem "COM 9"
+useport.ListIndex = 5
+
+grptype.ListIndex = 0
+zlevel.ListIndex = 4
+measmode.ListIndex = 0
+
+connect.Caption = "Connect"
+connect.backcolor=rgb(150,255,100)
+
+sweep.Caption = "Sweep"
+sweep.backcolor=rgb(255,100,100)
+
+graph.forecolor=vbblack
+graph.borderstyle=1
+graph.scalemode=3
+graph.drawwidth=1
+  
+graph.penstyle=2
+graph.drawline 0,graph.Height*(1/6),graph.Width,graph.Height*(1/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(2/6),graph.Width,graph.Height*(2/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(4/6),graph.Width,graph.Height*(4/6),rgb(200,200,200)
+graph.drawline 0,graph.Height*(5/6),graph.Width,graph.Height*(5/6),rgb(200,200,200)
+graph.drawline graph.Width/4,0,graph.Width/4,graph.Height,rgb(200,200,200)
+graph.drawline graph.Width/1.333,0,graph.Width/1.333,graph.Height,rgb(200,200,200)
+graph.penstyle=1
+graph.drawline 0,graph.Height*0.5,graph.Width,graph.Height*0.5,rgb(120,120,120)
+graph.drawline graph.Width/2,0,graph.Width/2,graph.Height,rgb(120,120,120)
+rem graph.drawtext "Absolute",145,1,vbblue
+rem graph.drawtext "Normal range",135,graph.Height - 17,vbblue
+
+sfreq.borderstyle=1
+sfreq.numbersonly=true
+sfreq.maxlength=6
+sfreq.Text="100"
+
+lab1.Caption = "<- F (kHz) ->"
+lab1.backcolor=Output.backcolor
+lab1.alignment=2
+
+efreq.alignment=1
+efreq.borderstyle=1
+efreq.numbersonly=true
+efreq.maxlength=6
+efreq.Text="180000"
+
+load_settings
+setctlvals
+setfontsize
+
+Dim titlebar
+titlebar=array("File","Data","Graph","Export","Help")
+setmenu "titlebar",titlebar
+Dim fileMenu
+fileMenu=array("Open","Save","SaveSettings","Exit")
+setmenu "File",fileMenu
+Dim calMenu
+calMenu=array("SetRef","Adj2Ref","Defaults","dBoffsetAv","dBoffsetInfo","dBoffsetZero")
+setmenu "Data",calMenu
+Dim exportMenu
+exportMenu=array("ExportCSV")
+setmenu "Export",exportMenu
+Dim graphMenu
+graphMenu=array("dBOverlay","CancelOverlay","Redraw","SavePic")
+setmenu "Graph",graphMenu
+Dim helpMenu
+helpMenu=array("About","License")
+setmenu "Help",helpMenu
+

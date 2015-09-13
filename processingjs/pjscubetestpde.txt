@@ -1,0 +1,82 @@
+/*************************************************/
+/* 3D colourful cube for WebGL enabled browsers. */
+/* By Andrew Thomas, November 2010.              */
+/*                                               */
+/* This program is free software: you can        */
+/* redistribute it and/or modify it under the    */
+/* terms of the GNU General Public License       */
+/* as published by the Free Software Foundation, */
+/* either version 3 of the License, or (at your  */
+/* option) any later version.                    */
+/*                                               */
+/* This program is distributed in the hope that  */
+/* it will be useful, but WITHOUT ANY            */
+/* WARRANTY; without even the implied            */
+/* warranty of MERCHANTABILITY or FITNESS        */
+/* FOR A PARTICULAR PURPOSE.  See the            */
+/* GNU General Public License for more details.  */
+/*                                               */
+/* See http://www.gnu.org/licenses/ for full     */
+/* details of licenses.                          */
+/*************************************************/
+
+float xRot=0;
+float yRot=0;
+float xSpeed,ySpeed;
+int boxSize;
+int r,g,b,br,bg,bb,sr,sg,sb,or,og,ob,sw;
+
+void setup()
+{
+  size(400,400,P3D);
+  frameRate(20);
+  makeData();
+}
+
+void makeData()
+{
+  r=int(random(255));
+  g=int(random(255));
+  b=int(random(255));
+  br=int(random(255));
+  bg=int(random(255));
+  bb=int(random(255));
+  sr=int(random(255));
+  sg=int(random(255));
+  sb=int(random(255));
+  or=int(random(255));
+  og=int(random(255));
+  ob=int(random(255));
+  sw=int(random(20)+1);
+  boxSize=int(random(250)+20);
+  xSpeed=random(95)+5;
+  ySpeed=random(95)+5;
+}
+
+void mouseReleased()
+{
+  makeData();
+}
+
+void draw()
+{
+  background(br,bg,bb);
+  stroke(or,og,ob);
+  strokeWeight(sw*2);
+  line(0,0,width,0);
+  line(0,height,width,height);
+  line(0,0,0,height);
+  line(width,0,width,height);
+  translate(width/2,height/2);
+  stroke(sr,sg,sb);
+  strokeWeight(sw);
+  fill(r,g,b);
+  rotateX(xRot);
+  rotateY(yRot);
+  box(boxSize);
+  yRot+=PI/ySpeed;
+  if(yRot>2*PI) yRot-=2*PI;
+  xRot+=PI/xSpeed;
+  if(xRot>2*PI) xRot-=2*PI;
+}
+

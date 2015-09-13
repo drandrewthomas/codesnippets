@@ -1,0 +1,121 @@
+/*************************************************/
+/* This program is free software: you can        */
+/* redistribute it and/or modify it under the    */
+/* terms of the GNU General Public License       */
+/* as published by the Free Software Foundation, */
+/* either version 3 of the License, or (at your  */
+/* option) any later version.                    */
+/*                                               */
+/* This program is distributed in the hope that  */
+/* it will be useful, but WITHOUT ANY            */
+/* WARRANTY; without even the implied            */
+/* warranty of MERCHANTABILITY or FITNESS        */
+/* FOR A PARTICULAR PURPOSE.  See the            */
+/* GNU General Public License for more details.  */
+/*                                               */
+/* See http://www.gnu.org/licenses/ for full     */
+/* details of licenses.                          */
+/*************************************************/
+
+float phaseDiff=0;
+float wave1freq=10;
+float wave1amp=1;
+float wave1phase=0;
+float wave2freq=10;
+float wave2amp=1;
+float wave2phase=0;
+
+void setup()
+{
+}
+
+void draw()
+{
+  int x0,x1,y01,y11,y02,y21,y03,y31,yPos;
+  float wave1magn,wave2magn;
+  float wave1real,wave2real;
+  float wave1imag,wave2imag;
+  float real,imag,magnitude,phase;
+  background(255,255,255);
+  if(mouseX!=0 && mouseY!=0 && mousePressed==true)
+  {
+    if(mouseY<int((float(height)/3)))
+    {
+      wave1freq=map(mouseX,0,width,0,30);
+      yPos=mouseY-(height/3);
+      wave1amp=map(yPos,0,width/3,0,1);
+    }
+    else if(mouseY>int((float(height)/3)) && mouseY<int(float(height)*0.666))
+    {
+      wave2freq=map(mouseX,0,width,0,30);
+      yPos=mouseY-int(float(height)*0.666);
+      wave2amp=map(yPos,0,width/3,0,1);
+    }
+    else
+    {
+      phaseDiff=map(mouseX,0,width,0,PI);
+    }
+  }
+  stroke(150,150,150);
+  strokeWeight(1);
+  line(0,0,width,0);
+  line(0,height,width,height);
+  line(0,0,0,height);
+  line(width,0,width,height);
+  line(0,height/3,width/2-25,height/3);
+  line(width/2+25,height/3,width,height/3);
+  line(0,height*2/3,width/2-25,height*2/3);
+  line(width/2+25,height*2/3,width,height*2/3);
+  strokeWeight(3);
+  line(width/2-10,height/3,width/2+10,height/3);
+  line(width/2,height/3-10,width/2,height/3+10);
+  line(width/2-10,height*2/3-5,width/2+10,height*2/3-5);
+  line(width/2-10,height*2/3+5,width/2+10,height*2/3+5);
+  // Assume width is 2*PI wide at 1Hz
+  wave1phase=(0-(phaseDiff/2))+((0/float(width))*(wave1freq*2*PI));
+  wave2phase=(0+(phaseDiff/2))+((0/float(width))*(wave2freq*2*PI));
+  wave1magn=wave1amp*cos(wave1phase);
+  wave2magn=wave2amp*cos(wave2phase);
+  wave1real=wave1amp*cos(wave1phase);
+  wave1imag=wave1amp*sin(wave1phase);
+  wave2real=wave2amp*cos(wave2phase);
+  wave2imag=wave2amp*sin(wave2phase);
+  real=wave1real+wave2real;
+  imag=wave1imag+wave2imag;
+  magnitude=sqrt(real*real+imag*imag);
+  phase=acos(real/magnitude);
+  x0=0;
+  y01=int((float(height)/6)-(wave1amp*(float(height)/15)*cos(wave1phase)));
+  y02=int((float(height)/2)-(wave2amp*(float(height)/15)*cos(wave2phase)));
+  y03=int((float(height)*0.8333)-(float(height)/15)*magnitude*cos(phase));
+  for(x1=1;x1<width;x1++)
+  {
+    wave1phase=(0-(phaseDiff/2))+((float(x1)/float(width))*(wave1freq*2*PI));
+    wave2phase=(0+(phaseDiff/2))+((float(x1)/float(width))*(wave2freq*2*PI));
+    wave1magn=wave1amp*cos(wave1phase);
+    wave2magn=wave2amp*cos(wave2phase);
+    wave1real=wave1amp*cos(wave1phase);
+    wave1imag=wave1amp*sin(wave1phase);
+    wave2real=wave2amp*cos(wave2phase);
+    wave2imag=wave2amp*sin(wave2phase);
+    real=wave1real+wave2real;
+    imag=wave1imag+wave2imag;
+    magnitude=sqrt(real*real+imag*imag);
+    phase=acos(real/magnitude);
+    y11=int((float(height)/6)-(float(height)/15)*wave1magn);
+    y21=int((float(height)/2)-(float(height)/15)*wave2magn);
+    y31=int((float(height)*0.8333)-(float(height)/15)*magnitude*cos(phase));
+    strokeWeight(2);
+    stroke(255,0,0);
+    line(x0,y01,x1,y11);
+    stroke(0,255,0);
+    line(x0,y02,x1,y21);
+    stroke(0,0,255);
+    line(x0,y03,x1,y31);
+    x0=x1;
+    y01=y11;
+    y02=y21;
+    y03=y31;
+  }
+}
+

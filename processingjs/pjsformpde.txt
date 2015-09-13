@@ -1,0 +1,62 @@
+/*************************************************/
+/* Two way communication between Processing.JS   */
+/* graphics on a canvas and a HTML web form.     */
+/* Programmed by Andrew Thomas, October 2010.    */
+/*                                               */
+/* This program is free software: you can        */
+/* redistribute it and/or modify it under the    */
+/* terms of the GNU General Public License       */
+/* as published by the Free Software Foundation, */
+/* either version 3 of the License, or (at your  */
+/* option) any later version.                    */
+/*                                               */
+/* This program is distributed in the hope that  */
+/* it will be useful, but WITHOUT ANY            */
+/* WARRANTY; without even the implied            */
+/* warranty of MERCHANTABILITY or FITNESS        */
+/* FOR A PARTICULAR PURPOSE.  See the            */
+/* GNU General Public License for more details.  */
+/*                                               */
+/* See http://www.gnu.org/licenses/ for full     */
+/* details of licenses.                          */
+/*************************************************/
+
+int sizeChoice;
+int size=0;
+
+void setup()
+{
+  window.Processing.data.drawRed=255;
+  window.Processing.data.drawGreen=0;
+  window.Processing.data.drawBlue=0;
+  window.Processing.data.foreRed=0;
+  window.Processing.data.foreGreen=0;
+  window.Processing.data.foreBlue=255;
+  sizeChoice=document.getElementById('size');
+}
+
+void draw()
+{
+  size=sizeChoice.selectedIndex;    
+  background(window.Processing.data.drawRed,
+    window.Processing.data.drawGreen,
+    window.Processing.data.drawBlue);
+  fill(window.Processing.data.foreRed,
+    window.Processing.data.foreGreen,
+    window.Processing.data.foreBlue);
+  stroke(0,0,0);
+  switch(size)
+  {
+    case 0: ellipse(width/2,height/2,200,200); break;
+    case 1: ellipse(width/2,height/2,100,100); break;
+    case 2: ellipse(width/2,height/2,50,50); break;
+  }
+}
+
+void mouseReleased()
+{
+  size++;
+  if(size>2) size=0;
+  sizeChoice.selectedIndex=size;    
+}
+

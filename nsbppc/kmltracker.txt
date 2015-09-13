@@ -1,0 +1,398 @@
+'  GPS KML Tracker using GGA NMEA sentences
+'
+'  Programmed by: Andrew Thomas
+'  Year(s): 2009-2010
+'
+'  This program is free software: you can
+'  redistribute it and/or modify it under the
+'  terms of the GNU General Public License
+'  as published by the Free Software Foundation,
+'  either version 3 of the License, or (at your
+'  option) any later version.
+'
+'  This program is distributed in the hope that
+'  it will be useful, but WITHOUT ANY
+'  WARRANTY; without even the implied
+'  warranty of MERCHANTABILITY or FITNESS
+'  FOR A PARTICULAR PURPOSE.  See the
+'  GNU General Public License for more details.
+'
+'  See http://www.gnu.org/licenses/ for full
+'  details of licenses.
+
+option explicit
+
+ShowOKButton True
+
+Dim starttime,tracking,paused
+Dim cnt,constat,bauds(6)
+Dim gotdata,qm
+Dim ptslogged,logtimer,gpsstr
+Dim longitude,latitude,altitude
+Dim sats,hdop,quality
+Dim licenseTxt1,licenseTxt2
+ptslogged=0
+tracking=0
+paused=0
+logtimer=1000
+bauds(1)=1200
+bauds(2)=2400
+bauds(3)=9600
+bauds(4)=19200
+bauds(5)=57600
+bauds(6)=115200
+constat=0
+gotdata=0
+Const PI = 3.14159265358979
+qm=chr(34)
+
+Sub frequency_Click()
+  startKML.timer=0
+  logtimer=(frequency.listindex+1)*1000
+  if tracking=0 then
+    startKML.timer=logtimer
+  end if
+End Sub
+  
+Sub startKML_Timer()
+  if tracking=1 and paused=0 then
+    file.lineprint longitude & "," & latitude & "," & altitude
+    ptslogged=ptslogged+1
+    logged.Caption = "Logged " & ptslogged & " points"
+  end if
+End Sub
+
+Sub connect_Click()
+    if constat=0 then
+      objPort.BaudRate = bauds(baudmode.listindex+1)
+      objPort.ComPort = useport.ListIndex
+      objPort.Timeout = 0 
+      objPort.ByteSize = 8 
+      objPort.BufferSize = 1
+      objPort.Parity = 0
+      objPort.StopBits = 1
+      objPort.Enabled = True
+      objPort.NoEvents = False
+      status.Caption = "Connecting"
+      connect.Caption = "Disconnect"
+      useport.enabled=false
+      baudmode.enabled=false
+      frequency.enabled=false
+      constat=1
+    else
+      objPort.Enabled = False 
+      gotdata=0
+      status.Caption = "Disconnected"
+      connect.Caption = "Connect"
+      eastlab.caption="Easting: No fix"
+      northlab.caption="Northing: No fix"
+      altlab.caption="Altitude: No fix"
+      useport.enabled=true
+      baudmode.enabled=true
+      frequency.enabled=true
+      pauseKML.backcolor=Output.backcolor
+      pauseKML.forecolor=rgb(150,150,150)
+      if tracking=1 then
+        stoplogging
+      end if
+      constat=0
+    end if
+End Sub
+
+Sub objPort_OnRead(str)
+  Dim splt,chksum,deg,mint,compos
+  If IsNull(str) Then
+    rem Do nothing
+  Else
+    if str=chr(13) then
+      if left(ucase(gpsstr),6)="$GPGGA" then
+        splt=split(gpsstr,",")
+        quality=splt(6)
+        chksum=splt(14)
+        if quality<>1 then
+          gpsstr=""
+          exit sub
+        end if
+        if left(chksum,1)<>"*" then
+          gpsstr=""
+          exit sub
+        end if
+        latitude=splt(2)
+        if latitude="" then
+          gpsstr=""
+          exit sub
+        end if
+        compos=instr(latitude,".")
+        mint=right(latitude,len(latitude)-compos+3)
+        deg=left(latitude,compos-3)
+        latitude=deg + mint/60
+        if splt(3)="S" then
+          latitude=latitude*(-1)
+        end if
+        longitude=splt(4)
+        compos=instr(longitude,".")
+        mint=right(longitude,len(longitude)-compos+3)
+        deg=left(longitude,compos-3)
+        longitude=deg + mint/60
+        if splt(5)="W" then
+          longitude=longitude*(-1)
+        end if
+        altitude=cdbl(splt(9))
+        sats=cint(splt(7))
+        hdop=cdbl(splt(8))
+        gotdata=1
+        eastlab.caption="Easting: " & formatnumber(longitude,3,true)
+        northlab.caption="Northing: " & formatnumber(latitude,3,true)
+        altlab.caption="Altitude: " & formatnumber(altitude,3,true)
+        status.Caption = "Connected"
+      end if
+      gpsstr=""
+    elseif str=chr(10) then
+      rem Do nothing
+    else
+      gpsstr=gpsstr & str
+    end if
+  End If
+End Sub
+
+Sub Output_close
+  objPort.Enabled = False 
+  Bye
+End Sub
+
+Sub Exit_Click
+  objPort.Enabled = False 
+  Bye
+End Sub
+
+Sub About_Click
+  Msgbox "KML Tracker PPC V1.0." & vbcrlf & vbcrlf & "A simple program for saving a KML track from GPS data using GGA strings in NMEA sentences." & vbcrlf & vbcrlf & "See www.geocomputing.co.uk for more information.",0,"About KML Tracker"
+End Sub
+
+Sub License_Click
+  Msgbox licenseTxt1,0,"KML Tracker License (1/2)"
+  Msgbox licenseTxt2,0,"KML Tracker License (2/2)"
+End Sub
+
+Sub pauseKML_Click()
+  if tracking=0 then
+    exit sub
+  end if
+  if paused=0 then
+    paused=1
+    pauseKML.Caption = "Continue"
+    pauseKML.backcolor=rgb(100,255,100)
+  else
+    paused=0
+    pauseKML.Caption = "Pause"
+    pauseKML.backcolor=rgb(100,100,255)
+  end if
+End Sub
+  
+Sub StartKML_Click()
+  if tracking=0 then
+    startlogging
+    if tracking=1 then
+      startKML.timer=logtimer
+      pauseKML.backcolor=rgb(100,100,255)
+      pauseKML.forecolor=rgb(0,0,0)
+      pauseKML.enabled=true
+    end if
+  else
+    startKML.timer=0
+    stoplogging
+    pauseKML.backcolor=Output.backcolor
+    pauseKML.forecolor=rgb(150,150,150)
+    pauseKML.enabled=false
+  end if
+End Sub
+  
+Sub startlogging()
+  Dim txtFileName
+  if gotdata=0 or constat=0 then
+    Msgbox "There is no valid GPS fix to save, or you are not connected to the GPS. Please connect to the GPS, and wait for a fix, before saving the waypoint.",0,"No valid GPS fix"
+    exit sub
+  end if
+  dialog.DialogTitle = "Save KML track"
+  dialog.InitDir = "\"
+  dialog.Flags = 0
+  dialog.Filter = "KML File|*.kml"
+  dialog.DefaultExt = "kml"
+'  dialog.filename = ""
+  dialog.filename = wayname.text
+  dialog.CancelError = True
+  On Error Resume Next        
+  dialog.ShowSave
+  If Err.Number = 0 Then
+    ptslogged=0
+    tracking=1
+    paused=0
+    logged.Caption = "Logged 0 points"
+    startKML.Caption = "Stop"
+    pauseKML.Caption = "Pause"
+    startKML.backcolor=rgb(255,100,100)
+    pauseKML.backcolor=rgb(150,255,100)
+    txtFileName = dialog.filename
+    file.Open txtFileName, 4, 2, 3, 500
+    file.lineprint "<?xml version=" & qm & "1.0" & qm &" encoding=" & qm & "UTF-8" & qm & "?>"
+    file.lineprint "<?GPS Tracker PPC?>"
+    file.lineprint "<kml xmlns=" & qm & "http://www.opengis.net/kml/2.2" & qm &">"
+    file.lineprint "<Document><name>"
+    file.lineprint wayname.Text
+    file.lineprint "</name><description>"
+    file.lineprint now
+    file.lineprint "</description><Style id=" & qm &"yellowLineGreenPoly" & qm &">"
+    file.lineprint "<LineStyle><color>7f00ffff</color>"
+    file.lineprint "<width>4</width></LineStyle>"
+    file.lineprint "<PolyStyle><color>7f00ff00</color>"
+    file.lineprint "</PolyStyle></Style><Placemark>"
+    file.lineprint "<name>"
+    file.lineprint wayname.Text
+    file.lineprint "</name><description>"
+    file.lineprint "GPS Tracker"
+    file.lineprint "</description>"
+    file.lineprint "<styleUrl>#yellowLineGreenPoly</styleUrl>"
+    file.lineprint "<LineString><extrude>1</extrude>"
+    file.lineprint "<tessellate>1</tessellate>"
+    file.lineprint "<altitudeMode>clampToGround</altitudeMode>"
+    file.lineprint "<coordinates>"
+  End If
+End Sub
+    
+Sub stoplogging()
+  if tracking=0 then
+    exit sub
+  end if
+  tracking=0
+  startKML.Caption = "Start"
+  pauseKML.Caption = "Pause"
+  startKML.backcolor=rgb(100,255,100)
+  pauseKML.backcolor=rgb(100,255,100)
+  file.lineprint "</coordinates></LineString></Placemark>"
+  file.lineprint "</Document></kml>"
+  file.Close
+  killfocus
+  KeyboardStatus=0
+End Sub
+
+AddObject "serialce.port.1","objPort"
+AddObject "serialce.license","objlicense"
+objLicense.LicenseKey = "*** License ***"
+
+Output.backcolor=rgb(200,200,200)
+
+AddObject "NSBasic.ComDlg","dialog",0,0,0,0
+  If Vartype(dialog)<>9 Then 
+   MsgBox "Common Dialog control not installed. Please check the ReadMe file's section on ""Install Device Components"" for more information."
+    Bye
+  End If
+
+addObject "filesystem"
+addObject "file"
+
+AddObject "Label", "lab1", 5, 5, 40, 20
+AddObject "TextBox", "wayname", 50, 5, 184, 20
+AddObject "CommandButton", "startKML", 5, 30, 112, 80
+AddObject "CommandButton", "pauseKML", 122, 30, 112, 80
+AddObject "Label", "status", 5, 115, 230, 20
+AddObject "Label", "eastlab", 5, 135, 230, 20
+AddObject "Label", "northlab", 5, 155, 230, 20
+AddObject "Label", "altlab", 5, 175, 230, 20
+AddObject "Label", "logged", 10, 195, 220, 20
+AddObject "ComboBox", "useport", 5, 220, 112, 100
+AddObject "ComboBox", "baudmode", 122, 220, 112, 100
+AddObject "ComboBox", "frequency", 5, 245, 112, 120
+AddObject "CommandButton", "connect", 122, 245, 112, 20
+    
+eastlab.caption="Easting: No fix"
+northlab.caption="Northing: No fix"
+altlab.caption="Altitude: No fix"
+eastlab.backcolor=Output.backcolor
+northlab.backcolor=Output.backcolor
+altlab.backcolor=Output.backcolor
+eastlab.alignment=2
+northlab.alignment=2
+altlab.alignment=2
+
+lab1.Caption = "Name:"
+lab1.backcolor=Output.backcolor
+
+wayname.borderstyle=1
+wayname.fontsize=9
+wayname.text="Log name"
+
+frequency.AddItem "Log every 1s"
+frequency.AddItem "Log every 2s"
+frequency.AddItem "Log every 3s"
+frequency.AddItem "Log every 4s"
+frequency.AddItem "Log every 5s"
+frequency.AddItem "Log every 6s"
+frequency.AddItem "Log every 7s"
+frequency.AddItem "Log every 8s"
+frequency.AddItem "Log every 9s"
+frequency.AddItem "Log every 10s"
+frequency.AddItem "Log every 11s"
+frequency.AddItem "Log every 12s"
+frequency.AddItem "Log every 13s"
+frequency.AddItem "Log every 14s"
+frequency.AddItem "Log every 15s"
+frequency.AddItem "Log every 16s"
+frequency.AddItem "Log every 17s"
+frequency.AddItem "Log every 18s"
+frequency.AddItem "Log every 19s"
+frequency.AddItem "Log every 20s"
+frequency.ListIndex = 0
+
+baudmode.AddItem "1200"
+baudmode.AddItem "2400"
+baudmode.AddItem "9600"
+baudmode.AddItem "19200"
+baudmode.AddItem "57600"
+baudmode.AddItem "115200"
+baudmode.ListIndex = 4
+
+useport.AddItem "Auto"
+useport.AddItem "COM 1"
+useport.AddItem "COM 2"
+useport.AddItem "COM 3"
+useport.AddItem "COM 4"
+useport.AddItem "COM 5"
+useport.AddItem "COM 6"
+useport.AddItem "COM 7"
+useport.AddItem "COM 8"
+useport.AddItem "COM 9"
+useport.ListIndex = 6
+
+startKML.Caption = "Start"
+pauseKML.Caption = "Pause"
+startKML.backcolor=rgb(100,255,100)
+pauseKML.backcolor=Output.backcolor
+pauseKML.forecolor=rgb(150,150,150)
+pauseKML.enabled=false
+
+connect.Caption = "Connect"
+connect.backcolor=rgb(150,255,100)
+
+status.Caption = "Disconnected"
+status.backcolor=Output.backcolor
+status.alignment=2
+
+logged.Caption = ""
+logged.backcolor=Output.backcolor
+logged.alignment=2
+
+
+Dim titlebar
+titlebar=array("File","Help")
+setmenu "titlebar",titlebar
+Dim fileMenu
+fileMenu=array("Exit")
+setmenu "File",fileMenu
+Dim helpMenu
+helpMenu=array("About","License")
+setmenu "Help",helpMenu
+
+licenseTxt1="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+licenseTxt2="This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details." & vbcrlf & vbcrlf
+licenseTxt2=licenseTxt2 & "See http://www.gnu.org/licenses/ for full details of licenses." 
+See http://www.gnu.org/licenses/ for full details of licenses." 

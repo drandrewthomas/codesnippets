@@ -1,0 +1,75 @@
+/*************************************************/
+/* Sierpinski triangle drawing in Processing.    */
+/* Andrew Thomas, November 2010.                 */
+/*                                               */
+/* This program is free software: you can        */
+/* redistribute it and/or modify it under the    */
+/* terms of the GNU General Public License       */
+/* as published by the Free Software Foundation, */
+/* either version 3 of the License, or (at your  */
+/* option) any later version.                    */
+/*                                               */
+/* This program is distributed in the hope that  */
+/* it will be useful, but WITHOUT ANY            */
+/* WARRANTY; without even the implied            */
+/* warranty of MERCHANTABILITY or FITNESS        */
+/* FOR A PARTICULAR PURPOSE.  See the            */
+/* GNU General Public License for more details.  */
+/*                                               */
+/* See http://www.gnu.org/licenses/ for full     */
+/* details of licenses.                          */
+/*************************************************/
+
+int[] x=new int [3];
+int[] y=new int [3];
+int xpnt,ypnt,dice,xdot,ydot,tmp;
+int r=0,b=0,g=0;
+int br=255,bb=255,bg=255;
+int tr=255,tb=255,tg=255;
+Boolean paused=true;
+
+void setup()
+{
+  frameRate(30);
+  x[0]=width/2;
+  y[0]=0;
+  x[1]=0;
+  y[1]=height;
+  x[2]=width;
+  y[2]=height;
+  background(br,bg,bb);
+  stroke(r,g,b);
+  fill(tr,tg,tb);
+  triangle(x[0],y[0],x[1],y[1]-1,x[2],y[2]-1);
+  fill(r,g,b);
+}
+
+void mouseReleased()
+{
+  paused=true;
+  xpnt=mouseX;
+  ypnt=mouseY;
+  tmp=int((float(width)/2)*(float(ypnt)/float(height)));
+  if(xpnt<((width/2)-tmp)) xpnt=(width/2)-tmp;
+  if(xpnt>((width/2)+tmp)) xpnt=(width/2)+tmp;
+  background(br,bg,bb);
+  stroke(r,g,b);
+  fill(tr,tg,tb);
+  triangle(x[0],y[0],x[1],y[1]-1,x[2],y[2]-1);
+  fill(r,g,b);
+  paused=false;
+}
+
+void draw()
+{
+  if(paused==false)
+  {
+    dice=int(random(3));
+    xdot=(xpnt+x[dice])/2;
+    ydot=(ypnt+y[dice])/2;
+    point(xdot,ydot);
+    xpnt=xdot;
+    ypnt=ydot;
+  }
+}
+

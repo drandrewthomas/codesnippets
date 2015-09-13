@@ -1,0 +1,76 @@
+/*************************************************/
+/* Dial guage with random values.                */
+/* By Andrew Thomas, December 2010.              */
+/*                                               */
+/* This program is free software: you can        */
+/* redistribute it and/or modify it under the    */
+/* terms of the GNU General Public License       */
+/* as published by the Free Software Foundation, */
+/* either version 3 of the License, or (at your  */
+/* option) any later version.                    */
+/*                                               */
+/* This program is distributed in the hope that  */
+/* it will be useful, but WITHOUT ANY            */
+/* WARRANTY; without even the implied            */
+/* warranty of MERCHANTABILITY or FITNESS        */
+/* FOR A PARTICULAR PURPOSE.  See the            */
+/* GNU General Public License for more details.  */
+/*                                               */
+/* See http://www.gnu.org/licenses/ for full     */
+/* details of licenses.                          */
+/*************************************************/
+
+int truevalue=50;
+int dialvalue=0;
+int dialspeed=1;
+int centrex=width/2;
+int centrey=height-20;
+int nlength=height-60;
+int startang=20;
+int endang=160;
+int startval=0;
+int endval=100;
+
+void setup()
+{
+  frameRate(30);
+}
+
+void drawguage()
+{
+  int c,ang,x,y;
+  background(255,255,255);
+  stroke(0,0,0);
+  fill(0,0,0);
+  for(c=0;c<=10;c++)
+  {
+    ang=map(c,0,10,startang,endang);
+    x=centrex+(nlength+10)*cos((PI*ang/180)+PI);
+    y=centrey+(nlength+10)*sin((PI*ang/180)+PI);
+    ellipse(x,y,c+2,c+2);
+  }
+  ellipse(centrex,centrey,25,25);
+  ang=map(dialvalue,startval,endval,startang,endang);
+  pushMatrix();
+  translate(centrex,centrey);
+  rotate((PI*ang/180)+PI/2);
+  fill(255,0,0);
+  beginShape();
+  vertex(-7,-15);
+  vertex(0,nlength);
+  vertex(7,-15);
+  endShape(CLOSE);
+  popMatrix();
+  fill(0,0,0);
+  ellipse(centrex,centrey,5,5);
+}
+
+void draw()
+{
+  int olddial=dialvalue;
+  if(int(random(50))==0) truevalue=int(random(101));
+  if(dialvalue<truevalue && (dialvalue+dialspeed)<endval) dialvalue+=dialspeed;
+  if(dialvalue>truevalue && (dialvalue-dialspeed)>startval) dialvalue-=dialspeed;
+  if(dialvalue!=olddial) drawguage();
+}
+

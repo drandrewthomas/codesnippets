@@ -1,0 +1,119 @@
+/*************************************************/
+/* Spirograph pattern drawing in Processing.     */
+/* Andrew Thomas, October 2010.                  */
+/*                                               */
+/* This program is free software: you can        */
+/* redistribute it and/or modify it under the    */
+/* terms of the GNU General Public License       */
+/* as published by the Free Software Foundation, */
+/* either version 3 of the License, or (at your  */
+/* option) any later version.                    */
+/*                                               */
+/* This program is distributed in the hope that  */
+/* it will be useful, but WITHOUT ANY            */
+/* WARRANTY; without even the implied            */
+/* warranty of MERCHANTABILITY or FITNESS        */
+/* FOR A PARTICULAR PURPOSE.  See the            */
+/* GNU General Public License for more details.  */
+/*                                               */
+/* See http://www.gnu.org/licenses/ for full     */
+/* details of licenses.                          */
+/*************************************************/
+
+int CX,CY,DX,DY,X,Y,X0,Y0;
+float D,R1,R2,RH,Q,A,B;
+float angleStep=PI/30;
+Boolean paused=false;
+int size=0;
+int sizeChoice,sw;
+
+void setup()
+{
+  frameRate(30);
+  window.Processing.data.foreRed=255;
+  window.Processing.data.foreGreen=0;
+  window.Processing.data.foreBlue=0;
+  window.Processing.data.Reset=0;
+  sizeChoice=document.getElementById('size');
+  CX=width/2;
+  CY=height/2;
+  if(width>height) R1=height/2;
+  else R1=width/2;
+  newLayout();
+}
+
+void newLayout()
+{
+  background(255,255,255);
+  newDisc();
+}
+
+void newDisc()
+{
+  A=0; B=0;
+  size=sizeChoice.selectedIndex;
+  sw=int(random(4))+1;
+  switch(size)
+  {
+    case 0:
+      R2=random(0.3*R1)+(0.1*R1);
+      break;
+    case 1: 
+      R2=random(0.3*R1)+(0.4*R1);
+      break;
+    case 2: 
+      R2=random(0.3*R1)+(0.7*R1);
+      break;
+  }
+  RH=(0.1*R2)+random(0.9*R2);
+  Q=R1/R2;
+  D=R1-R2;
+  calcNext();
+  X0=X; Y0=Y;
+}
+
+void calcNext()
+{
+  DX=CX+int(D*cos(A));
+  DY=CY+int(D*sin(A));
+  X=DX+int(RH*cos(B));
+  Y=DY+int(RH*sin(B));
+}
+
+void draw()
+{
+  if(paused==false)
+  {
+    if(sizeChoice.selectedIndex!=size)
+    {
+      size=sizeChoice.selectedIndex;
+      newDisc();
+    }
+    stroke(window.Processing.data.foreRed,
+      window.Processing.data.foreGreen,
+      window.Processing.data.foreBlue);
+    strokeWeight(sw);
+    A+=angleStep;
+    if(A>3E38)
+    {
+      A=0;
+      B=0;
+    }
+    B=Q*A;
+    calcNext();
+    line(X0,Y0,X,Y);
+    X0=X; Y0=Y;
+  }
+  if(window.Processing.data.Reset==1)
+  {
+    window.Processing.data.Reset=0;
+    newLayout();
+  }
+}
+
+void mouseReleased()
+{
+  if(paused==false) paused=true;
+  else paused=false;
+}
+
